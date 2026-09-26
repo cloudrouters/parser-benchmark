@@ -1,0 +1,16 @@
+{
+  "name": "parser-benchmark",
+  "version": "1.0.0",
+  "author": "CloudRouters",
+  "scripts": {
+    "parser": "tsx parser.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0",
+    "proxy-chain": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.20.5"
+  }
+}
