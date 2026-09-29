@@ -32,15 +32,27 @@ With `--reuse-context`, a single browser context is used for all attempts for th
 
 2. Extract the archive.
 
-3. Download and install Node.js: https://nodejs.org/en/download
+3. Download and install Node.js:
 
-4. Open the repository directory in CMD or another terminal.
+https://nodejs.org/en/download
 
-5. Install the dependencies:
+4. Open the repository directory in CMD, PowerShell, Terminal, or another terminal.
+
+5. Install the project dependencies:
 
 ```bash
 npm install
 ```
+
+6. Install the Chromium browser required by Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+The same installation commands are used on Windows and macOS.
+
+Google Chrome does not need to be installed separately. Playwright uses its own Chromium browser.
 
 ## Quick Start
 
