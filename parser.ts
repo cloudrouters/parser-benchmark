@@ -11,37 +11,24 @@ import * as ProxyChain from "proxy-chain";
 
 const CONFIG = {
   attempts: 10,
-
   headless: false,
-
   ipCheckUrl: "https://api.ipify.org/?format=json",
-
   internetCheckTimeoutMs: 15_000,
-
   pageTimeoutMs: 30_000,
-
+  navigationRecoveryTimeoutMs: 5_000,
   contentWaitTimeoutMs: 5_000,
-
   challengeWaitTimeoutMs: 30_000,
-
   contentCheckIntervalMs: 250,
-
   attemptDelayMs: 1_000,
-
   outputFile: "benchmark-results.json",
 } as const;
 
 const ANSI = {
   reset: "\x1b[0m",
-
   bold: "\x1b[1m",
-
   white: "\x1b[97m",
-
   green: "\x1b[32m",
-
   red: "\x1b[31m",
-
   cyan: "\x1b[96m",
 } as const;
 
@@ -105,33 +92,19 @@ const TARGETS = [
 
 const CHALLENGE_PATTERNS = [
   "just a moment",
-
   "checking your browser",
-
   "verify you are human",
-
   "verify you are a human",
-
   "unusual traffic",
-
   "access denied",
-
   "security check",
-
   "captcha",
-
   "recaptcha",
-
   "hcaptcha",
-
   "cf-chl-",
-
   "cloudflare",
-
   "akamai",
-
   "bot manager",
-
   "are you a robot",
 ] as const;
 
@@ -139,59 +112,42 @@ type Target = (typeof TARGETS)[number];
 
 type AttemptResult = {
   attempt: number;
-
   status: number | null;
-
   requestSuccess: boolean;
-
   contentSuccess: boolean;
-
   challenge: boolean;
-
   responseTime: number;
-
   finalUrl: string | null;
-
   title: string | null;
-
   error: string | null;
 };
 
 type TargetResult = {
   target: Target;
-
   results: AttemptResult[];
 };
 
 type ResponseStats = {
   avg: number | null;
-
   p50: number | null;
-
   p90: number | null;
-
   p95: number | null;
-
   p99: number | null;
 };
 
 type LocalProxy = {
   url: string;
-
   port: string;
 };
 
 type ContextOptions = {
   locale: string;
-
   timezoneId: string;
-
   viewport: {
     width: number;
 
     height: number;
   };
-
   proxy?: {
     server: string;
   };
@@ -396,7 +352,6 @@ function containsChallenge(text: string): boolean {
 
 function containsExpectedContent(
   text: string,
-
   expectedContent: readonly string[]
 ): boolean {
   return expectedContent.some((content) =>
@@ -404,9 +359,52 @@ function containsExpectedContent(
   );
 }
 
+function isRealHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function waitForRealNavigation(page: Page): Promise<boolean> {
+  const deadline = Date.now() + CONFIG.navigationRecoveryTimeoutMs;
+
+  while (Date.now() < deadline) {
+    let currentUrl = "";
+
+    try {
+      currentUrl = page.url();
+    } catch {
+      return false;
+    }
+
+    if (isRealHttpUrl(currentUrl)) {
+      return true;
+    }
+
+    await sleep(CONFIG.contentCheckIntervalMs);
+  }
+
+  let finalUrl = "";
+
+  try {
+    finalUrl = page.url();
+  } catch {
+    finalUrl = "unavailable";
+  }
+
+  if (isRealHttpUrl(finalUrl)) {
+    return true;
+  }
+
+  return false;
+}
+
 async function waitForExpectedContent(
   page: Page,
-
   expectedContent: readonly string[]
 ): Promise<ContentCheckResult> {
   const normalDeadline = Date.now() + CONFIG.contentWaitTimeoutMs;
@@ -425,8 +423,6 @@ async function waitForExpectedContent(
     const currentContent = containsExpectedContent(text, expectedContent);
 
     /*
-     * IMPORTANT:
-     *
      * If a challenge is present, expected content
      * does NOT count as success.
      *
@@ -503,7 +499,6 @@ async function waitForExpectedContent(
 
 async function checkInternet(
   browser: Browser,
-
   localPort: string | null
 ): Promise<string | null> {
   const context = await browser.newContext(getContextOptions(localPort));
@@ -561,9 +556,7 @@ async function checkInternet(
 
 async function saveChallengeDiagnostics(
   page: Page,
-
   target: Target,
-
   attempt: number
 ): Promise<void> {
   if (target.name !== "eBay") {
@@ -617,13 +610,9 @@ async function saveChallengeDiagnostics(
 
 async function runAttempt(
   browser: Browser,
-
   target: Target,
-
   attempt: number,
-
   localPort: string | null,
-
   context?: BrowserContext
 ): Promise<AttemptResult> {
   const ownContext =
@@ -641,6 +630,8 @@ async function runAttempt(
 
   let navigationError: string | null = null;
 
+  let navigationStuck = false;
+
   let response: Awaited<ReturnType<Page["goto"]>> = null;
 
   try {
@@ -654,6 +645,32 @@ async function runAttempt(
       if (response !== null) {
         status = response.status();
       }
+
+      /*
+       * Playwright can return a successful HTTP response
+       * while the browser itself is still sitting on
+       * about:blank / another about:* URL.
+       *
+       * In this case we wait up to 5 seconds for the
+       * actual HTTP/HTTPS navigation to appear.
+       */
+      if (isSuccessfulStatus(status)) {
+        const navigated = await waitForRealNavigation(page);
+
+        if (!navigated) {
+          navigationStuck = true;
+
+          navigationError =
+            `Page remained on "${page.url()}" ` +
+            `for ${CONFIG.navigationRecoveryTimeoutMs / 1000} seconds.`;
+
+          console.log(
+            `Navigation did not complete within ${
+              CONFIG.navigationRecoveryTimeoutMs / 1000
+            } seconds. Retrying...`
+          );
+        }
+      }
     } catch (error) {
       navigationError = getErrorMessage(error);
     }
@@ -664,7 +681,7 @@ async function runAttempt(
 
     let challenge = false;
 
-    if (isSuccessfulStatus(status)) {
+    if (!navigationStuck && isSuccessfulStatus(status)) {
       requestSuccess = true;
 
       const contentResult = await waitForExpectedContent(page, target.content);
@@ -672,7 +689,7 @@ async function runAttempt(
       contentSuccess = contentResult.success;
 
       challenge = contentResult.challenge;
-    } else {
+    } else if (!navigationStuck) {
       const text = await getPageText(page);
 
       challenge = containsChallenge(text);
@@ -703,7 +720,7 @@ async function runAttempt(
     return {
       attempt,
 
-      status,
+      status: navigationStuck ? null : status,
 
       requestSuccess,
 
@@ -721,8 +738,10 @@ async function runAttempt(
     };
   } finally {
     /*
-     * The page is closed ONLY after the entire
-     * challenge wait has completed.
+     * Only the current Page is closed.
+     *
+     * The Browser and, when --reuse-context is used,
+     * the BrowserContext remain alive.
      */
     await page.close().catch(() => {});
 
@@ -734,7 +753,6 @@ async function runAttempt(
 
 function percentile(
   values: readonly number[],
-
   percentileValue: number
 ): number | null {
   if (values.length === 0) {
@@ -808,7 +826,6 @@ function formatMs(value: number | null): string {
 
 function printTable(
   headers: readonly string[],
-
   rows: readonly (readonly string[])[]
 ): void {
   const widths = headers.map((header, index) => {
@@ -865,13 +882,15 @@ function printAttemptResult(result: AttemptResult): void {
       `Response time: ${result.responseTime} ms | ` +
       `HTTP status: ${statusValue}`
   );
+
+  if (result.error !== null) {
+    console.log(`Error: ${red(result.error)}`);
+  }
 }
 
 async function runTarget(
   browser: Browser,
-
   target: Target,
-
   localPort: string | null
 ): Promise<AttemptResult[]> {
   console.log("");
@@ -903,6 +922,25 @@ async function runTarget(
       results.push(result);
 
       printAttemptResult(result);
+
+      /*
+       * If every attempt has failed because the page
+       * remained on about:* instead of navigating to
+       * the target, stop the benchmark with an error.
+       */
+      if (
+        attempt === CONFIG.attempts &&
+        results.every(
+          (item) =>
+            item.error !== null && item.error.includes("Page remained on")
+        )
+      ) {
+        throw new Error(
+          `${target.name} navigation failed ` +
+            `${CONFIG.attempts} consecutive times. ` +
+            `The browser remained on about:* instead of navigating to the target.`
+        );
+      }
 
       if (attempt < CONFIG.attempts) {
         await sleep(CONFIG.attemptDelayMs);
@@ -1001,11 +1039,7 @@ function printSummary(allResults: readonly TargetResult[]): void {
   );
 }
 
-function createOutput(
-  externalIP: string,
-
-  allResults: readonly TargetResult[]
-) {
+function createOutput(externalIP: string, allResults: readonly TargetResult[]) {
   return {
     mode: proxyUrl === null ? "DIRECT" : "SOCKS5",
 
