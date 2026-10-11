@@ -3,14 +3,22 @@
   "version": "1.0.0",
   "author": "CloudRouters",
   "scripts": {
-    "parser": "tsx parser.ts"
+    "parser": "tsx parser.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "playwright": "^1.63.0",
     "proxy-chain": "^3.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.2",
-    "tsx": "^4.20.5"
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "tsx": "^4.20.5",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.71.1"
   }
 }

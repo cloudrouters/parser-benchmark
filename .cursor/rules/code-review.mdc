@@ -1,0 +1,55 @@
+---
+description: "Code review, regression analysis, and final verification of changes"
+alwaysApply: true
+---
+
+# Code Review and Verification
+
+## 1. Review All Changes
+
+- Before declaring a task complete, review the full diff of your changes, including every modified, added, and deleted file.
+- Compare the implementation against the approved plan, requirements, and acceptance criteria.
+- Look for logical errors, unhandled exceptions, incorrect assumptions, race conditions, asynchronous execution issues, resource leaks, and security vulnerabilities where relevant.
+- Check edge cases, error paths, type safety, and compatibility with existing interfaces.
+- Look for unintended behavior changes, duplicated logic, unnecessary complexity, unrelated refactoring, and accidental modifications.
+- Do not consider code correct merely because it compiles or passes tests.
+
+## 2. Run Available Quality Checks
+
+- Run the relevant automated tests, including new tests and existing regression tests.
+- Run TypeScript type checking, linting, and formatting checks using the project's existing tools.
+- Run the build when applicable.
+- For changes affecting integrations or end-to-end behavior, run additional integration or E2E checks when available and practical.
+- Inspect failures and warnings introduced by the changes. Fix issues within the approved scope.
+- Do not add tools, dependencies, or configuration solely to satisfy this rule without a justified need.
+
+## 3. Protect Existing Behavior
+
+- Verify that changes preserve existing functionality, public interfaces, test scenarios, output formats, and metrics unless the requirements explicitly call for a change.
+- Review related components for potential regressions, even when their source files were not modified.
+- For the parser and benchmark, pay particular attention to previously supported websites, proxy and direct-connection modes, result formats, and existing statistics.
+- Never change expected test results merely to make the implementation appear correct. Follow the testing and TDD rules when a test needs correction.
+
+## 4. Independent Review
+
+- Re-examine the implementation from the perspective of a reviewer who did not write it.
+- Question whether the tests adequately verify the requirements and whether important failure scenarios remain uncovered.
+- Use available independent review tools when appropriate, but treat their findings as additional evidence rather than unquestionable truth.
+- Distinguish confirmed defects from speculative concerns. Do not introduce changes merely to address hypothetical problems without a meaningful justification.
+
+## 5. Final Report
+
+Before completing the task, report in Russian:
+
+- What was implemented and which requirements were satisfied.
+- Which tests and quality checks were actually executed, with their results.
+- Any defects found during review and whether they were resolved.
+- Any checks that could not be performed, remaining risks, and unverified scenarios.
+
+Never claim that a test, type check, lint, build, or independent review passed unless the corresponding check was actually performed successfully.
+
+## 6. Scope and Safety
+
+- Do not make unrelated changes during review.
+- Do not create commits, rewrite Git history, discard user changes, or perform destructive Git operations without explicit approval.
+- If a serious issue requires changes beyond the approved scope, explain the issue and request approval before proceeding.

@@ -1,0 +1,51 @@
+---
+description: "Required workflow for planning, approving, and implementing code changes"
+alwaysApply: true
+---
+
+# Development Workflow
+
+## 1. Understand the Task
+
+- Before making changes, understand the requirements, expected behavior, and acceptance criteria.
+- Inspect the relevant source files, dependencies, existing tests, and established implementation patterns.
+- Identify constraints, potential regressions, and dependencies between components.
+- Do not start implementing based on assumptions when missing information could materially affect the solution.
+
+## 2. Plan Before Implementing
+
+- Before modifying source code or tests, prepare a plan appropriate to the task's complexity.
+- Describe the intended behavior, implementation steps, files likely to be affected, required tests, and verification criteria.
+- For complex or multi-file tasks, investigate the architecture and dependencies before finalizing the plan.
+- For simple tasks, provide a concise plan without unnecessary analysis or documentation.
+- Clearly identify uncertainties, risks, and decisions that require my input.
+
+## 3. Obtain Approval
+
+- Present the plan and wait for my explicit approval before modifying source code, tests, configuration, or other project files.
+- Do not interpret silence, an unrelated message, or a request for clarification as approval.
+- If new information materially changes the plan, explain the change and obtain approval before proceeding with the revised approach.
+- Do not expand the task beyond its agreed scope without approval.
+
+## 4. Implement in Small, Verifiable Steps
+
+- Follow the approved plan and implement one logical step at a time.
+- Prefer focused changes that are easy to understand, test, and review.
+- Preserve existing behavior, interfaces, and project conventions unless the requirements explicitly call for a change.
+- Avoid unrelated refactoring, speculative improvements, and unnecessary dependencies.
+- If implementation reveals a significant architectural issue or a conflict with the requirements, stop and explain the issue before proceeding beyond the approved scope.
+
+## 5. Verify Before Completion
+
+- Verify each significant change using the project's available tests and validation tools.
+- Follow the project's TDD and code review rules when applicable.
+- Do not treat successful compilation or passing tests as sufficient proof that the requirements have been met.
+- Compare the final result against the approved plan and acceptance criteria.
+- Report what changed, which checks were actually performed, their results, and any remaining limitations.
+
+## 6. Scope and Safety
+
+- Do not create commits, rewrite Git history, reset branches, discard user changes, or perform destructive Git operations without my explicit approval.
+- Do not overwrite or revert unrelated user changes.
+- Do not claim that files, tests, builds, or other checks were completed unless they were actually completed.
+- Keep explanations, plans, clarification questions, and final reports in Russian unless I request another language.

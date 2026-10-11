@@ -1,0 +1,47 @@
+---
+description: "General standards for TypeScript, software design, and maintainable code"
+alwaysApply: true
+---
+
+# Development Standards
+
+## 1. TypeScript and JavaScript
+
+- Use TypeScript and ES2025 features compatible with the target runtime and the project's configuration.
+- Prefer strict typing. Avoid `any`, unsafe type assertions, and suppressing TypeScript errors without a justified reason.
+- Follow modern JavaScript and TypeScript practices. Refer to the following sources:
+  - You Don't Know JS (Russian translation): https://github.com/azat-io/you-dont-know-js-ru
+  - JavaScript: The Definitive Guide — David Flanagan.
+  - https://javascript.info
+- Follow the project's existing TypeScript, linter, formatter, and coding conventions. Do not duplicate their configuration in these rules.
+
+## 2. Design Principles
+
+- Follow SOLID, DRY, KISS, and YAGNI.
+- Apply Gang of Four (GoF) design patterns and their modern interpretations only when they simplify a real problem.
+- Eliminate duplicated logic, but do not combine independent components merely to satisfy DRY mechanically.
+- Prefer the simplest solution that fully meets the requirements. Avoid unnecessary abstractions, excessive generalization, and premature optimization.
+- Separate responsibilities, maintain clear interfaces, and account for side effects, asynchronous behavior, and error handling.
+
+## 3. Working with the Existing Codebase
+
+- Before making changes, inspect related files, dependencies, existing implementations, and established architectural decisions.
+- Reuse existing types, utilities, and components whenever appropriate instead of creating duplicates.
+- Make the smallest complete set of changes necessary to solve the task.
+- Avoid unrelated refactoring. Do not change existing contracts or remove functionality without a justified need.
+- Do not introduce dependencies, architectural layers, or new tools without a clear benefit.
+- Do not guess about requirements that materially affect the solution. Ask for clarification when uncertainty could affect correctness or architecture.
+
+## 4. Reliability and Maintainability
+
+- Write readable code with meaningful names and explicit, understandable logic.
+- Introduce functions and abstractions when they improve readability, reuse, or separation of responsibilities.
+- Use comments to explain reasoning and non-obvious constraints, not to restate what the code already does.
+- Write all comments in source code in English, including inline comments, block comments, JSDoc, and TODO notes.
+- Do not hide errors with empty exception handlers, fabricated fallback values, or unjustified suppression of warnings.
+- Account for edge cases and handle errors appropriately for the task's requirements.
+- Do not optimize performance based on speculation when doing so would add complexity without a demonstrated benefit.
+
+## 5. Decision Priorities
+
+Prioritize correctness, security, simplicity, and maintainability when choosing a solution. Apply principles thoughtfully rather than mechanically, taking the actual requirements, project constraints, and existing behavior into account.

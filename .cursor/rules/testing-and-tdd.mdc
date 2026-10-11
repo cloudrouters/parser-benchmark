@@ -1,0 +1,48 @@
+---
+description: "Test-driven development, regression prevention, and test integrity"
+alwaysApply: true
+---
+
+# Testing and Test-Driven Development
+
+## 1. Test-Driven Development (TDD)
+
+- For new functionality, behavior changes, and bug fixes, follow the Red-Green-Refactor cycle.
+- Before implementing a behavior change, identify the expected behavior and acceptance criteria, then write or update tests that verify them.
+- Base tests on the requirements and expected behavior, not on assumptions about how the implementation will work.
+- Run the new or updated tests before changing production code. Confirm that they fail for the intended reason, such as missing functionality or a reproducible bug.
+- After confirming the expected failure, implement the smallest complete solution that satisfies the requirements and makes the tests pass.
+- After the tests pass, refactor when beneficial and rerun the relevant tests.
+
+## 2. Test Integrity
+
+- Treat tests as executable specifications of the required behavior.
+- Never modify, remove, weaken, or skip a test merely to make an incorrect implementation pass.
+- When a test fails, determine whether the cause is an implementation defect, an incorrect test, changed requirements, or a test-environment problem.
+- If a test appears incorrect or conflicts with the requirements, explain the specific issue and obtain my approval before changing its expected behavior.
+- Do not silently change assertions, expected values, test inputs, or coverage to conceal regressions.
+- Do not use mocks, stubs, or fabricated results that bypass the behavior the test is supposed to verify.
+- Use mocks only when appropriate to isolate external dependencies or nondeterministic behavior.
+
+## 3. Test Quality and Coverage
+
+- Test observable behavior and externally meaningful contracts rather than implementation details.
+- Cover relevant normal cases, edge cases, invalid inputs, error handling, and boundary conditions.
+- For bug fixes, add a regression test that reproduces the original failure and verifies the corrected behavior.
+- Prefer deterministic, repeatable tests. Avoid unnecessary reliance on real networks, external services, timing assumptions, or shared mutable state.
+- Follow the project's existing test framework, conventions, and infrastructure.
+- Do not introduce a new test framework or testing dependency without a justified need.
+
+## 4. Regression Prevention
+
+- Run relevant existing tests after making changes, not only the newly added tests.
+- Preserve existing test scenarios, assertions, output formats, and metrics unless the requirements explicitly require a change.
+- When changing one component, verify that related components and previously supported scenarios still behave as expected.
+- Do not treat passing new tests as proof that existing behavior has been preserved.
+
+## 5. Exceptions
+
+- For documentation-only changes, pure renames, and other changes that do not alter runtime behavior, use appropriate validation instead of creating artificial tests.
+- If automated testing is impractical, explain why and use the closest reliable verification method available.
+- Never claim that a test passed, failed, or was executed unless you actually ran it.
+- Report relevant test results and any scenarios that remain unverified.
