@@ -80,6 +80,10 @@ Attempts: 10
 
 Context mode: NEW PER ATTEMPT
 
+Browser: chromium
+
+Targets: global
+
 Starting local proxy bridge...
 
 Local HTTP proxy: 127.0.0.1:12345
@@ -126,9 +130,38 @@ npm run parser -- "socks5://login:pass@ip:port" --reuse-context
 
 After the website test is completed, the context is closed and a new context is created for the next website.
 
+### `--browser`
+
+Selects the browser used for the test. The default is `chromium`.
+
+| **Value**  | **Browser**                                                  |
+| ---------- | ------------------------------------------------------------ |
+| `chromium` | Chromium bundled with Playwright (default)                   |
+| `chrome`   | Installed Google Chrome (Playwright `chrome` channel)        |
+
+```bash
+npm run parser -- "socks5://login:pass@ip:port" --browser=chrome
+```
+
+`--browser=chrome` requires Google Chrome. Install it normally, or run:
+
+```bash
+npx playwright install chrome
+```
+
+### `--targets`
+
+Selects the set of websites to test. The default is `global`.
+
+```bash
+npm run parser -- --targets=global
+```
+
+An unknown browser, an unknown set, or an unknown option stops the program with an error that lists the available values.
+
 ## Tested Websites
 
-The current version tests:
+The `global` set (`--targets=global`, the default) tests:
 
 | **Website** | **URL**                  |
 | ----------- | ------------------------ |
@@ -329,6 +362,8 @@ The file contains:
 
 * browser context mode;
 
+* browser (`browser`) and target set (`targetSet`);
+
 * test start time;
 
 * results of each attempt;
@@ -344,6 +379,8 @@ Example:
   "externalIP": "188.28.90.112",
   "attempts": 10,
   "contextMode": "NEW_PER_ATTEMPT",
+  "browser": "chromium",
+  "targetSet": "global",
   "generatedAt": "2026-09-28T19:00:00.000Z"
 }
 ```

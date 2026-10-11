@@ -49,3 +49,4 @@ alwaysApply: true
 - Do not overwrite or revert unrelated user changes.
 - Do not claim that files, tests, builds, or other checks were completed unless they were actually completed.
 - Keep explanations, plans, clarification questions, and final reports in Russian unless I request another language.
+- Use `gh` for all GitHub operations (issues, PRs, CI checks).

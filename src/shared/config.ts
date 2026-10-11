@@ -1,0 +1,31 @@
+export const CONFIG = {
+  attempts: 10,
+  headless: false,
+  ipCheckUrl: "https://api.ipify.org/?format=json",
+  internetCheckTimeoutMs: 15_000,
+  pageTimeoutMs: 30_000,
+  navigationRecoveryTimeoutMs: 5_000,
+  contentWaitTimeoutMs: 5_000,
+  challengeWaitTimeoutMs: 30_000,
+  contentCheckIntervalMs: 250,
+  attemptDelayMs: 1_000,
+  outputFile: "benchmark-results.json",
+} as const;
+
+export const CHALLENGE_PATTERNS = [
+  "just a moment",
+  "checking your browser",
+  "verify you are human",
+  "verify you are a human",
+  "unusual traffic",
+  "access denied",
+  "security check",
+  "captcha",
+  "recaptcha",
+  "hcaptcha",
+  "cf-chl-",
+  "cloudflare",
+  "akamai",
+  "bot manager",
+  "are you a robot",
+] as const;

@@ -5,6 +5,8 @@
   "scripts": {
     "parser": "tsx parser.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
@@ -19,6 +21,7 @@
     "globals": "^17.13.0",
     "tsx": "^4.20.5",
     "typescript": "~6.0",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
   }
 }
