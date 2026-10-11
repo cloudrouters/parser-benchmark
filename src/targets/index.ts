@@ -1,4 +1,5 @@
 import { GLOBAL_TARGETS } from "./global.js";
+import { RU_TARGETS } from "./ru.js";
 import type { TargetSet } from "./types.js";
 
 export const DEFAULT_TARGET_SET_NAME = "global";
@@ -8,6 +9,7 @@ export const DEFAULT_TARGET_SET_NAME = "global";
  */
 export const TARGET_SETS: readonly TargetSet[] = [
   { name: "global", targets: GLOBAL_TARGETS },
+  { name: "ru", targets: RU_TARGETS },
 ];
 
 export function resolveTargetSet(name: string): TargetSet {

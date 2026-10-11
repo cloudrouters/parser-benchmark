@@ -153,9 +153,17 @@ npx playwright install chrome
 
 Selects the set of websites to test. The default is `global`.
 
+| **Value** | **Websites**                                                     |
+| --------- | ---------------------------------------------------------------- |
+| `global`  | Google, Bing, Amazon, eBay, Walmart, Booking, LinkedIn (default) |
+| `ru`      | Wildberries                                                      |
+
 ```bash
 npm run parser -- --targets=global
+npm run parser -- "socks5://login:pass@ip:port" --targets=ru
 ```
+
+The `--` after the script name is required: without it npm treats `--targets` as its own option and does not pass it to the program.
 
 An unknown browser, an unknown set, or an unknown option stops the program with an error that lists the available values.
 
@@ -172,6 +180,12 @@ The `global` set (`--targets=global`, the default) tests:
 | Walmart     | https://www.walmart.com  |
 | Booking     | https://www.booking.com  |
 | LinkedIn    | https://www.linkedin.com |
+
+The `ru` set (`--targets=ru`) tests:
+
+| **Website** | **URL**                    |
+| ----------- | -------------------------- |
+| Wildberries | https://www.wildberries.ru |
 
 Each website is tested 10 times.
 
@@ -218,6 +232,7 @@ After a successful request, the program checks the page content.
 | Walmart     | Walmart              |
 | Booking     | Booking.com          |
 | LinkedIn    | LinkedIn             |
+| Wildberries | Wildberries          |
 
 If the expected content is found:
 

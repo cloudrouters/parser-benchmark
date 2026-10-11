@@ -8,6 +8,7 @@ describe("target sets", () => {
 
     expect(new Set(names).size).toBe(names.length);
     expect(names).toContain("global");
+    expect(names).toContain("ru");
   });
 
   it("gives every target a name, an http(s) url and expected content", () => {
@@ -51,6 +52,20 @@ describe("resolveTargetSet", () => {
     ]);
   });
 
+  it("resolves the ru set with Wildberries only", () => {
+    const { name, targets } = resolveTargetSet("ru");
+
+    expect(name).toBe("ru");
+    expect(targets).toEqual([
+      {
+        name: "Wildberries",
+        url: "https://www.wildberries.ru/",
+        content: ["Wildberries"],
+        saveDiagnostics: true,
+      },
+    ]);
+  });
+
   it("requests challenge diagnostics only for eBay", () => {
     const withDiagnostics = resolveTargetSet("global")
       .targets.filter((target) => target.saveDiagnostics === true)
@@ -61,7 +76,7 @@ describe("resolveTargetSet", () => {
 
   it("throws and lists the available sets for an unknown name", () => {
     expect(() => resolveTargetSet("mars")).toThrow(
-      'Unknown target set "mars". Available: global.'
+      'Unknown target set "mars". Available: global, ru.'
     );
   });
 });

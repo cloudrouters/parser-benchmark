@@ -53,6 +53,13 @@ describe("parseCliArgs", () => {
     }
   );
 
+  it.each([["--targets=ru"], ["--targets", "ru"]])(
+    "selects the ru target set with %j",
+    (...argv) => {
+      expect(parseCliArgs(argv).targetSet.name).toBe("ru");
+    }
+  );
+
   it("rejects an unknown flag", () => {
     expect(() => parseCliArgs(["--browzer=chrome"])).toThrow();
   });
@@ -65,7 +72,7 @@ describe("parseCliArgs", () => {
 
   it("rejects an unknown target set and lists the available ones", () => {
     expect(() => parseCliArgs(["--targets=mars"])).toThrow(
-      'Unknown target set "mars". Available: global.'
+      'Unknown target set "mars". Available: global, ru.'
     );
   });
 });
