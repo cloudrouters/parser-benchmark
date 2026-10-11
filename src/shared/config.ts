@@ -9,6 +9,9 @@ export const CONFIG = {
   challengeWaitTimeoutMs: 30_000,
   contentCheckIntervalMs: 250,
   attemptDelayMs: 1_000,
+  chromeStartTimeoutMs: 30_000,
+  chromeStartPollIntervalMs: 100,
+  chromeShutdownTimeoutMs: 10_000,
   outputFile: "benchmark-results.json",
 } as const;
 
@@ -28,4 +31,8 @@ export const CHALLENGE_PATTERNS = [
   "akamai",
   "bot manager",
   "are you a robot",
+  // Wildberries antibot stub (served with HTTP 498).
+  "проверяем браузер",
+  "подозрительная активность",
+  "подозрительную активность",
 ] as const;

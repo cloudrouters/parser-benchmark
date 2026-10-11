@@ -1,8 +1,26 @@
 import type { LaunchOptions } from "playwright";
 
-export interface BrowserProfile {
+/** Browser launched and driven by Playwright itself. */
+export interface PlaywrightBrowserProfile {
   readonly name: string;
   readonly launchOptions: LaunchOptions;
+}
+
+/**
+ * Installed Google Chrome started as a separate process with a new temporary
+ * profile and driven over the DevTools protocol.
+ */
+export interface SystemChromeProfile {
+  readonly name: string;
+  readonly kind: "system-chrome";
+}
+
+export type BrowserProfile = PlaywrightBrowserProfile | SystemChromeProfile;
+
+export function isSystemChromeProfile(
+  profile: BrowserProfile
+): profile is SystemChromeProfile {
+  return "kind" in profile;
 }
 
 export interface ContextOptions {
@@ -31,6 +49,8 @@ export interface PageReader {
   url(): string;
   title(): Promise<string>;
   locator(selector: "body"): LocatorLike;
+  /** Evaluates a JavaScript expression in the page and returns its value. */
+  evaluate(expression: string): Promise<unknown>;
 }
 
 export interface ResponseLike {

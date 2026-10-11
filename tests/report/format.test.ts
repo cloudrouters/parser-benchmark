@@ -11,7 +11,7 @@ import {
   formatSummary,
   renderTable,
 } from "../../src/report/format.js";
-import { green, red } from "../../src/shared/ansi.js";
+import { green, red, yellow } from "../../src/shared/ansi.js";
 import { CONFIG } from "../../src/shared/config.js";
 import {
   createAttemptResult,
@@ -103,6 +103,38 @@ describe("formatAttemptResult", () => {
     expect(line).toContain(red("YES"));
     expect(line).toContain(red("403"));
     expect(errorLine).toBe(`Error: ${red("boom")}`);
+  });
+
+  it("reports a challenge that resolved by itself as AUTO in yellow", () => {
+    const line = formatAttemptResult(
+      createAttemptResult({ challenge: true, contentSuccess: true })
+    );
+
+    expect(stripVTControlCharacters(line)).toContain("Challenge: AUTO |");
+    expect(line).toContain(yellow("AUTO"));
+    expect(line).not.toContain(red("YES"));
+  });
+
+  it("shows a challenge status that the target accepted in yellow", () => {
+    const line = formatAttemptResult(
+      createAttemptResult({
+        status: 498,
+        requestSuccess: true,
+        challenge: true,
+        contentSuccess: true,
+      })
+    );
+
+    expect(line).toContain(yellow("498"));
+    expect(line).toContain(green("OK"));
+  });
+
+  it("keeps a failed status red when the request was not accepted", () => {
+    const line = formatAttemptResult(
+      createAttemptResult({ status: 498, requestSuccess: false })
+    );
+
+    expect(line).toContain(red("498"));
   });
 
   it("renders a missing HTTP status as a dash", () => {

@@ -4,6 +4,7 @@ const ANSI = {
   white: "\x1b[97m",
   green: "\x1b[32m",
   red: "\x1b[31m",
+  yellow: "\x1b[33m",
   cyan: "\x1b[96m",
 } as const;
 
@@ -21,6 +22,10 @@ export function green(text: string): string {
 
 export function red(text: string): string {
   return color(text, ANSI.red);
+}
+
+export function yellow(text: string): string {
+  return color(text, ANSI.yellow);
 }
 
 export function cyan(text: string): string {

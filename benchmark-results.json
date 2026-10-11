@@ -1,0 +1,1119 @@
+{
+  "mode": "DIRECT",
+  "proxy": null,
+  "externalIP": "88.218.94.100",
+  "attempts": 10,
+  "contextMode": "NEW_PER_ATTEMPT",
+  "browser": "chrome",
+  "targetSet": "ru",
+  "generatedAt": "2026-10-11T22:19:18.788Z",
+  "targets": [
+    {
+      "name": "Yandex",
+      "url": "https://ya.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3490,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756324.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3323,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756335.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2979,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756341.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3174,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756346.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3592,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756352.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2566,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756358.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3344,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756363.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3110,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756369.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3649,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756375.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3134,
+          "finalUrl": "https://ya.ru/?nr=1&redirect_ts=1791756381.00000",
+          "title": "Яндекс — быстрый поиск в интернете",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 3236.1,
+        "p50": 3248.5,
+        "p90": 3597.7,
+        "p95": 3623.35,
+        "p99": 3643.87
+      }
+    },
+    {
+      "name": "Yandex Market",
+      "url": "https://market.yandex.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 5336,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4333,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4562,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4381,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4506,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4710,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4487,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 4245,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 5871,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 5630,
+          "finalUrl": "https://market.yandex.ru/",
+          "title": "Яндекс Маркет — покупки с быстрой доставкой",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 4806.1,
+        "p50": 4534,
+        "p90": 5654.1,
+        "p95": 5762.55,
+        "p99": 5849.31
+      }
+    },
+    {
+      "name": "Wildberries",
+      "url": "https://www.wildberries.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 16389,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 10824,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 17550,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 10574,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 13458,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 11480,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 11631,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 11190,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 15735,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": true,
+          "responseTime": 11446,
+          "finalUrl": "https://www.wildberries.ru/",
+          "title": "Интернет-магазин Wildberries.ru: широкий ассортимент товаров - скидки каждый день!",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 13027.7,
+        "p50": 11555.5,
+        "p90": 16505.1,
+        "p95": 17027.55,
+        "p99": 17445.510000000002
+      }
+    },
+    {
+      "name": "Ozon",
+      "url": "https://www.ozon.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 2002,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1061,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1517,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1688,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 971,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1470,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1036,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1339,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1616,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 403,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1302,
+          "finalUrl": "https://www.ozon.ru/?__rr=1",
+          "title": "Похоже, нет соединения",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 1400.2,
+        "p50": 1404.5,
+        "p90": 1719.3999999999999,
+        "p95": 1860.6999999999996,
+        "p99": 1973.74
+      }
+    },
+    {
+      "name": "Avito",
+      "url": "https://www.avito.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1350,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1595,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1109,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 796,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1222,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 5040,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Авито — Объявления на сайте Авито",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 830,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1514,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1242,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 439,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 1746,
+          "finalUrl": "https://www.avito.ru/",
+          "title": "Доступ ограничен: проверка безопасности",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 1644.4,
+        "p50": 1296,
+        "p90": 2075.3999999999987,
+        "p95": 3557.699999999996,
+        "p99": 4743.540000000001
+      }
+    },
+    {
+      "name": "HH",
+      "url": "https://hh.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 8816,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7128,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 9279,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 8274,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 9237,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 11107,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 8295,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 8632,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 9247,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7834,
+          "finalUrl": "https://hh.ru/",
+          "title": "Работа в Москве, поиск персонала и публикация вакансий - hh.ru",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 8784.9,
+        "p50": 8724,
+        "p90": 9461.8,
+        "p95": 10284.399999999998,
+        "p99": 10942.48
+      }
+    },
+    {
+      "name": "Cian",
+      "url": "https://www.cian.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 5833,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 2,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 13812,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 3,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 8894,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 4,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 9478,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 5,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 9399,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 6,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 22698,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 7,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 9950,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 8,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 3334,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 9,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 4822,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        },
+        {
+          "attempt": 10,
+          "status": null,
+          "requestSuccess": false,
+          "contentSuccess": false,
+          "challenge": false,
+          "responseTime": 4172,
+          "finalUrl": "chrome-error://chromewebdata/",
+          "title": "www.cian.ru",
+          "error": "page.goto: net::ERR_CONNECTION_CLOSED at https://www.cian.ru/\nCall log:\n\u001b[2m  - navigating to \"https://www.cian.ru/\", waiting until \"domcontentloaded\"\u001b[22m\n"
+        }
+      ],
+      "stats": {
+        "avg": 9239.2,
+        "p50": 9146.5,
+        "p90": 14700.599999999997,
+        "p95": 18699.29999999999,
+        "p99": 21898.260000000002
+      }
+    },
+    {
+      "name": "Drom",
+      "url": "https://www.drom.ru/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3793,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 3939,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2256,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2962,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2330,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2379,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2091,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 1892,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2697,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 2397,
+          "finalUrl": "https://www.drom.ru/",
+          "title": "Дром - цены на машины",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 2673.6,
+        "p50": 2388,
+        "p90": 3807.6,
+        "p95": 3873.2999999999997,
+        "p99": 3925.86
+      }
+    },
+    {
+      "name": "VK",
+      "url": "https://vk.com/",
+      "results": [
+        {
+          "attempt": 1,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 13421,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 2,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7143,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 3,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 8804,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 4,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 9698,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 5,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7618,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 6,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7831,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 7,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7136,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 8,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7695,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 9,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 9582,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        },
+        {
+          "attempt": 10,
+          "status": 200,
+          "requestSuccess": true,
+          "contentSuccess": true,
+          "challenge": false,
+          "responseTime": 7345,
+          "finalUrl": "https://vk.ru/",
+          "title": "VK | Welcome!",
+          "error": null
+        }
+      ],
+      "stats": {
+        "avg": 8627.3,
+        "p50": 7763,
+        "p90": 10070.3,
+        "p95": 11745.649999999996,
+        "p99": 13085.93
+      }
+    }
+  ]
+}

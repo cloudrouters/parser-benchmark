@@ -4,7 +4,8 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/", "dist/", "build/", "coverage/"],
+    // `oldcode/` is a reference-only copy of the previous project.
+    ignores: ["node_modules/", "dist/", "build/", "coverage/", "oldcode/"],
   },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,

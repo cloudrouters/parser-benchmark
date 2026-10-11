@@ -26,10 +26,10 @@ describe("resolveBrowserProfile", () => {
     });
   });
 
-  it("resolves chrome to the installed Google Chrome channel", () => {
+  it("resolves chrome to the installed Google Chrome launched as a separate process", () => {
     expect(resolveBrowserProfile("chrome")).toEqual({
       name: "chrome",
-      launchOptions: { channel: "chrome" },
+      kind: "system-chrome",
     });
   });
 
@@ -53,12 +53,11 @@ describe("launchBrowser", () => {
     });
   });
 
-  it("launches Google Chrome through the chrome channel", async () => {
-    await launchBrowser(resolveBrowserProfile("chrome"));
+  it("launches Google Chrome through its own process instead of Playwright", async () => {
+    const browser = await launchBrowser(resolveBrowserProfile("chrome"));
 
-    expect(launchMock).toHaveBeenCalledWith({
-      channel: "chrome",
-      headless: CONFIG.headless,
-    });
+    expect(launchMock).not.toHaveBeenCalled();
+    expect(typeof browser.newContext).toBe("function");
+    await expect(browser.close()).resolves.toBeUndefined();
   });
 });

@@ -25,6 +25,14 @@ const EBAY = createTarget({
   saveDiagnostics: true,
 });
 
+const WILDBERRIES = createTarget({
+  name: "Wildberries",
+  url: "https://www.wildberries.ru/",
+  content: ["Wildberries"],
+  saveDiagnostics: true,
+  challengeStatuses: [498],
+});
+
 function createPageWithBody(
   body: string,
   options: FakePageOptions = {}
@@ -251,6 +259,125 @@ describe("runAttempt", () => {
     expect(result).toMatchObject({
       finalUrl: "https://example.com/",
       title: null,
+    });
+  });
+});
+
+describe("runAttempt with a challenge status", () => {
+  it("treats the status as a delivered request and reports a challenge that resolved by itself", async () => {
+    const startedAt = Date.now();
+    const page = createFakePage({
+      goto: () => Promise.resolve(createResponse(498)),
+      navigationStatus: () => (Date.now() - startedAt < 2_000 ? 498 : 200),
+      body: () =>
+        Promise.resolve(
+          Date.now() - startedAt < 2_000
+            ? "Проверяем браузер"
+            : "Интернет-магазин Wildberries"
+        ),
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, WILDBERRIES, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    // The reported status is the one of the page that delivered the content.
+    await expect(promise).resolves.toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      challenge: true,
+      error: null,
+    });
+    expect(page.screenshot).not.toHaveBeenCalled();
+  });
+
+  it("flags the challenge even when the page shows no recognisable challenge text", async () => {
+    const startedAt = Date.now();
+    const page = createFakePage({
+      goto: () => Promise.resolve(createResponse(498)),
+      navigationStatus: () => (Date.now() - startedAt < 7_000 ? 498 : 200),
+      body: () =>
+        Promise.resolve(
+          Date.now() - startedAt < 7_000 ? "" : "Интернет-магазин Wildberries"
+        ),
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, WILDBERRIES, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      challenge: true,
+    });
+  });
+
+  it("reports an unresolved challenge and saves diagnostics", async () => {
+    const page = createPageWithBody(
+      "Что-то не так... Подозрительная активность. Пожалуйста, подождите.",
+      {
+        goto: () => Promise.resolve(createResponse(498)),
+        navigationStatus: () => 498,
+      }
+    );
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, WILDBERRIES, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    const result = await promise;
+
+    expect(result).toMatchObject({
+      status: 498,
+      requestSuccess: true,
+      contentSuccess: false,
+      challenge: true,
+    });
+    expect(result.responseTime).toBeGreaterThanOrEqual(
+      CONFIG.challengeWaitTimeoutMs
+    );
+    expect(page.screenshot).toHaveBeenCalledWith({
+      path: "wildberries-challenge-1.png",
+      fullPage: true,
+    });
+  });
+
+  it("keeps the challenge status when the content never arrives", async () => {
+    const page = createPageWithBody("Подозрительная активность", {
+      goto: () => Promise.resolve(createResponse(498)),
+      navigationStatus: () => 498,
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, WILDBERRIES, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toMatchObject({
+      status: 498,
+      contentSuccess: false,
+    });
+  });
+
+  it("keeps treating the same status as a failed request for a target that does not list it", async () => {
+    const page = createPageWithBody("Service error", {
+      goto: () => Promise.resolve(createResponse(498)),
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const result = await runAttempt(browser, createTarget(), 1, null);
+
+    expect(result).toMatchObject({
+      status: 498,
+      requestSuccess: false,
+      contentSuccess: false,
+      challenge: false,
     });
   });
 });

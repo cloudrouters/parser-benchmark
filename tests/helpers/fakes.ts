@@ -15,6 +15,8 @@ export interface FakePageOptions {
   url?: () => string;
   title?: () => Promise<string>;
   body?: () => Promise<string>;
+  /** Status of the navigation entry that the page itself reports (default 200). */
+  navigationStatus?: () => number | null;
   goto?: PageLike["goto"];
   screenshot?: PageLike["screenshot"];
   close?: PageLike["close"];
@@ -33,6 +35,10 @@ export function createFakePage(options: FakePageOptions = {}): FakePage {
     url: options.url ?? (() => "https://example.com/"),
     title: options.title ?? (() => Promise.resolve("Example")),
     locator: () => ({ innerText: body }),
+    evaluate: () =>
+      Promise.resolve(
+        options.navigationStatus === undefined ? 200 : options.navigationStatus()
+      ),
     goto: vi.fn<PageLike["goto"]>(
       options.goto ?? (() => Promise.resolve(createResponse(200)))
     ),

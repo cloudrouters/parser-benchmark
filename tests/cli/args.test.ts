@@ -41,8 +41,7 @@ describe("parseCliArgs", () => {
     (...argv) => {
       const { browser } = parseCliArgs(argv);
 
-      expect(browser.name).toBe("chrome");
-      expect(browser.launchOptions).toEqual({ channel: "chrome" });
+      expect(browser).toEqual({ name: "chrome", kind: "system-chrome" });
     }
   );
 

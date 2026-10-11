@@ -6,7 +6,7 @@ A tool for testing the suitability of a SOCKS5 connection for parsing tasks and 
 
 For each website, the program:
 
-1. Opens the website in Chromium;
+1. Opens the website in the selected browser (Chromium by default, or Google Chrome with `--browser=chrome`);
 
 2. Checks the HTTP response;
 
@@ -52,7 +52,7 @@ npx playwright install chromium
 
 The same installation commands are used on Windows and macOS.
 
-Google Chrome does not need to be installed separately. Playwright uses its own Chromium browser.
+Google Chrome does not need to be installed for the default mode. Playwright uses its own Chromium browser. Google Chrome is required only with `--browser=chrome`.
 
 ## Quick Start
 
@@ -66,6 +66,13 @@ To run the test through SOCKS5:
 
 ```bash
 npm run parser -- "socks5://login:pass@ip:port"
+```
+
+To test the Russian websites (Yandex, Ozon, Wildberries, and others) in a real Google Chrome:
+
+```bash
+npm run parser -- --targets=ru --browser=chrome
+npm run parser -- "socks5://login:pass@ip:port" --targets=ru --browser=chrome
 ```
 
 By default, 10 attempts are performed for each website.
@@ -112,7 +119,7 @@ Each website is tested 10 times.
 
 ### SOCKS5
 
-A local HTTP proxy bridge is automatically created for Chromium and forwards traffic through the specified SOCKS5 connection.
+A local HTTP proxy bridge is automatically created for the browser (Chromium or Chrome) and forwards traffic through the specified SOCKS5 connection.
 
 ```bash
 npm run parser -- "socks5://login:pass@ip:port"
@@ -134,29 +141,44 @@ After the website test is completed, the context is closed and a new context is 
 
 Selects the browser used for the test. The default is `chromium`.
 
-| **Value**  | **Browser**                                                  |
-| ---------- | ------------------------------------------------------------ |
-| `chromium` | Chromium bundled with Playwright (default)                   |
-| `chrome`   | Installed Google Chrome (Playwright `chrome` channel)        |
+| **Value**  | **Browser**                                         |
+| ---------- | --------------------------------------------------- |
+| `chromium` | Chromium bundled with Playwright (default)          |
+| `chrome`   | Installed Google Chrome (started as a real browser) |
 
 ```bash
 npm run parser -- "socks5://login:pass@ip:port" --browser=chrome
 ```
 
-`--browser=chrome` requires Google Chrome. Install it normally, or run:
+`--browser=chrome` requires an installed Google Chrome. It works the same way on macOS and Windows.
+
+The program looks for Chrome in the standard installation directories. To use another Chrome executable, set the `CHROME_PATH` environment variable:
 
 ```bash
-npx playwright install chrome
+CHROME_PATH="/path/to/chrome" npm run parser -- --browser=chrome
 ```
+
+On Windows PowerShell:
+
+```powershell
+$env:CHROME_PATH = "C:\path\to\chrome.exe"; npm run parser -- --browser=chrome
+```
+
+In this mode the program starts a real Chrome window and controls it over the DevTools protocol. Your own Chrome profile, cookies and open windows are never used or closed:
+
+* every browser context is a separate Chrome process with a **new temporary profile** (a `parser-benchmark-chrome-*` directory in the system temporary folder);
+* by default (a new context per attempt) Chrome is started, the website is opened in its first (and only) tab, the result is checked, and then the whole Chrome is closed and its profile is deleted;
+* with `--reuse-context`, one Chrome is used for all attempts for the same website and is closed after the website is tested;
+* Chrome uses the language, time zone and screen settings of your computer. They are not emulated.
 
 ### `--targets`
 
 Selects the set of websites to test. The default is `global`.
 
-| **Value** | **Websites**                                                     |
-| --------- | ---------------------------------------------------------------- |
-| `global`  | Google, Bing, Amazon, eBay, Walmart, Booking, LinkedIn (default) |
-| `ru`      | Wildberries                                                      |
+| **Value** | **Websites**                                                                    |
+| --------- | ------------------------------------------------------------------------------- |
+| `global`  | Google, Bing, Amazon, eBay, Walmart, Booking, LinkedIn (default)                |
+| `ru`      | Yandex, Yandex Market, Wildberries, Ozon, Avito, HH, Cian, Drom, VK, Yandex Zen |
 
 ```bash
 npm run parser -- --targets=global
@@ -183,9 +205,22 @@ The `global` set (`--targets=global`, the default) tests:
 
 The `ru` set (`--targets=ru`) tests:
 
-| **Website** | **URL**                    |
-| ----------- | -------------------------- |
-| Wildberries | https://www.wildberries.ru |
+| **Website**   | **URL**                    |
+| ------------- | -------------------------- |
+| Yandex        | https://ya.ru              |
+| Yandex Market | https://market.yandex.ru   |
+| Wildberries   | https://www.wildberries.ru |
+| Ozon          | https://www.ozon.ru        |
+| Avito         | https://www.avito.ru       |
+| HH            | https://hh.ru              |
+| Cian          | https://www.cian.ru        |
+| Drom          | https://www.drom.ru        |
+| VK            | https://vk.com             |
+| Yandex Zen    | https://dzen.ru            |
+
+Wildberries checks the browser before showing the website. Use `--browser=chrome` for it: the bundled Chromium is usually not allowed through the check. We recommend `--browser=chrome` for the whole `ru` set.
+
+Challenge diagnostics are enabled for every `ru` website (see [Challenge](#challenge)).
 
 Each website is tested 10 times.
 
@@ -223,16 +258,25 @@ Request: FAIL
 
 After a successful request, the program checks the page content.
 
-| **Website** | **Expected Content** |
-| ----------- | -------------------- |
-| Google      | Google               |
-| Bing        | Bing                 |
-| Amazon      | Amazon               |
-| eBay        | eBay                 |
-| Walmart     | Walmart              |
-| Booking     | Booking.com          |
-| LinkedIn    | LinkedIn             |
-| Wildberries | Wildberries          |
+| **Website**   | **Expected Content** |
+| ------------- | -------------------- |
+| Google        | Google               |
+| Bing          | Bing                 |
+| Amazon        | Amazon               |
+| eBay          | eBay                 |
+| Walmart       | Walmart              |
+| Booking       | Booking.com          |
+| LinkedIn      | LinkedIn             |
+| Wildberries   | Wildberries          |
+| Yandex        | Яндекс               |
+| Yandex Market | Яндекс Маркет        |
+| Ozon          | Ozon                 |
+| Avito         | Авито                |
+| HH            | hh.ru                |
+| Cian          | ЦИАН                 |
+| Drom          | Дром                 |
+| VK            | VK                   |
+| Yandex Zen    | Дзен                 |
 
 If the expected content is found:
 
@@ -282,6 +326,12 @@ akamai
 bot manager
 
 are you a robot
+
+проверяем браузер
+
+подозрительная активность
+
+подозрительную активность
 ```
 
 A detected CAPTCHA does not immediately terminate the attempt.
@@ -293,12 +343,12 @@ If the challenge disappears and the expected content appears:
 ```text
 Request: OK
 
-Challenge: YES
+Challenge: AUTO
 
 Content: OK
 ```
 
-The challenge is still included in the statistics.
+`AUTO` (yellow) means that a challenge appeared and was passed automatically. The challenge is still included in the statistics.
 
 If the challenge remains after 30 seconds:
 
@@ -310,6 +360,8 @@ Challenge: YES
 Content: FAIL
 ```
 
+`YES` (red) means that the challenge was not passed. Without a challenge the value is `No` (green).
+
 The expected content is not considered successful while the challenge is present.
 
 This is especially important for eBay, because the challenge page itself may contain the word `eBay`.
@@ -319,6 +371,24 @@ If the eBay challenge remains after the waiting period, the program additionally
 ```text
 ebay-challenge-N.png
 ```
+
+The same diagnostics are saved for every `ru` website, for example `wildberries-challenge-N.png`. They are meant for analysing captchas and antibot pages of these websites before adding their handling.
+
+### Challenge status codes
+
+Wildberries first answers with HTTP status `498` and a stub page ("Проверяем браузер", then "Подозрительная активность" if the check fails). If the browser passes the check, the page reloads with the real website.
+
+Such a status is declared per website. At the moment only Wildberries declares one (`498`). The other `ru` websites have no special handling: if one of them shows a captcha or an antibot page, the attempt is reported as `Challenge: YES` (or `FAIL` for a non-`2xx`/`3xx` status) and the diagnostics are saved, so the stub can be analysed and its handling added.
+
+For targets that declare such a status, the response is treated as a delivered request:
+
+```text
+Request: OK | Challenge: AUTO | Content: OK | HTTP status: 200
+```
+
+The program then waits up to 30 seconds for the stub to be replaced with the real content. Content is accepted only when the page itself reports a status other than `498`, so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
+
+If the stub does not go away, the attempt is reported as `Challenge: YES | Content: FAIL` and keeps the `498` status (shown in yellow, because the request itself was delivered).
 
 ## Statistics
 
@@ -356,6 +426,12 @@ Automatically completed challenges are also included in the statistics.
 **P50 / P90 / P95 / P99** — percentile distribution of attempt execution times.
 
 If a challenge is detected during an attempt, the time spent waiting for it is included in the Response Time.
+
+## Limitations
+
+* With `--browser=chrome`, stopping the program with `Ctrl+C` does not delete the temporary Chrome profile, and the Chrome window it started may stay open. Close the window if needed and remove the leftover `parser-benchmark-chrome-*` directories from the system temporary folder manually.
+* Only Wildberries has a dedicated challenge status (`498`). Captchas of the other `ru` websites are only detected by the generic indicators listed above.
+* The expected content of the `ru` websites is a simple text match on the page title or body. If a website changes its wording, update `src/targets/ru.ts`.
 
 ## Saving Results
 

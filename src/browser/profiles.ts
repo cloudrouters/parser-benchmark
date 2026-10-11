@@ -1,17 +1,23 @@
 import { chromium } from "playwright";
 
 import { CONFIG } from "../shared/config.js";
-import type { BrowserProfile, LaunchedBrowser } from "./types.js";
+import { createChromeBrowser } from "./chrome/browser.js";
+import {
+  isSystemChromeProfile,
+  type BrowserProfile,
+  type LaunchedBrowser,
+} from "./types.js";
 
 export const DEFAULT_BROWSER_NAME = "chromium";
 
 /**
- * Chrome is launched by the same Playwright browser type as Chromium,
- * only through the "chrome" channel, which requires an installed Google Chrome.
+ * `chromium` is the Chromium bundled with Playwright. `chrome` is the
+ * installed Google Chrome, started as an ordinary process with a new profile
+ * for every context, so that it behaves like a real user's browser.
  */
 export const BROWSER_PROFILES: readonly BrowserProfile[] = [
   { name: "chromium", launchOptions: {} },
-  { name: "chrome", launchOptions: { channel: "chrome" } },
+  { name: "chrome", kind: "system-chrome" },
 ];
 
 export function resolveBrowserProfile(name: string): BrowserProfile {
@@ -29,6 +35,10 @@ export function resolveBrowserProfile(name: string): BrowserProfile {
 export function launchBrowser(
   profile: BrowserProfile
 ): Promise<LaunchedBrowser> {
+  if (isSystemChromeProfile(profile)) {
+    return Promise.resolve(createChromeBrowser());
+  }
+
   return chromium.launch({
     ...profile.launchOptions,
     headless: CONFIG.headless,

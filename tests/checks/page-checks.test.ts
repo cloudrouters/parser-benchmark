@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   containsChallenge,
   containsExpectedContent,
+  getNavigationStatus,
   getPageText,
+  isChallengeStatus,
   isRealHttpUrl,
   isSuccessfulStatus,
   waitForExpectedContent,
@@ -62,6 +64,9 @@ describe("containsChallenge", () => {
     "akamai",
     "bot manager",
     "are you a robot",
+    "проверяем браузер",
+    "подозрительная активность",
+    "подозрительную активность",
   ])("detects the %j indicator", (pattern) => {
     expect(containsChallenge(`some text ${pattern} more text`)).toBe(true);
   });
@@ -72,6 +77,26 @@ describe("containsChallenge", () => {
 
   it("expects already lower-cased text", () => {
     expect(containsChallenge("JUST A MOMENT")).toBe(false);
+  });
+});
+
+describe("isChallengeStatus", () => {
+  it("recognises a status listed by the target", () => {
+    expect(isChallengeStatus(498, [498])).toBe(true);
+  });
+
+  it("rejects a status the target does not list", () => {
+    expect(isChallengeStatus(403, [498])).toBe(false);
+    expect(isChallengeStatus(200, [498])).toBe(false);
+  });
+
+  it("rejects a missing status", () => {
+    expect(isChallengeStatus(null, [498])).toBe(false);
+  });
+
+  it("rejects every status for a target without challenge statuses", () => {
+    expect(isChallengeStatus(498, undefined)).toBe(false);
+    expect(isChallengeStatus(498, [])).toBe(false);
   });
 });
 
@@ -132,6 +157,67 @@ describe("getPageText", () => {
     const text = await getPageText(page);
 
     expect(text.trim()).toBe("");
+  });
+});
+
+describe("getPageText address handling", () => {
+  it("does not let the page's own address count as page text", async () => {
+    const page = createFakePage({
+      url: () => "https://www.wildberries.ru/",
+      title: () => Promise.resolve("loading https://www.wildberries.ru/"),
+      body: () => Promise.resolve(""),
+    });
+
+    await expect(getPageText(page)).resolves.toBe("loading \n");
+  });
+
+  it("keeps the text unchanged when the address cannot be read", async () => {
+    const page = createFakePage({
+      url: () => {
+        throw new Error("page closed");
+      },
+      title: () => Promise.resolve("My Title"),
+      body: () => Promise.resolve("Body TEXT"),
+    });
+
+    await expect(getPageText(page)).resolves.toBe("my title\nbody text");
+  });
+});
+
+describe("getNavigationStatus", () => {
+  it("returns the status reported by the page", async () => {
+    const page = createFakePage({ navigationStatus: () => 498 });
+
+    await expect(getNavigationStatus(page)).resolves.toBe(498);
+  });
+
+  it("treats a zero status as unknown", async () => {
+    const page = createFakePage({ navigationStatus: () => 0 });
+
+    await expect(getNavigationStatus(page)).resolves.toBeNull();
+  });
+
+  it("treats a missing status as unknown", async () => {
+    const page = createFakePage({ navigationStatus: () => null });
+
+    await expect(getNavigationStatus(page)).resolves.toBeNull();
+  });
+
+  it("treats a failed read during navigation as unknown", async () => {
+    const page = createFakePage();
+
+    page.evaluate = () =>
+      Promise.reject(new Error("Execution context was destroyed"));
+
+    await expect(getNavigationStatus(page)).resolves.toBeNull();
+  });
+
+  it("treats a non-numeric answer as unknown", async () => {
+    const page = createFakePage();
+
+    page.evaluate = () => Promise.resolve("498");
+
+    await expect(getNavigationStatus(page)).resolves.toBeNull();
   });
 });
 
@@ -302,5 +388,133 @@ describe("waitForExpectedContent", () => {
     expect(console.log).toHaveBeenCalledWith(
       "Challenge detected. Waiting up to 30 seconds for automatic resolution..."
     );
+  });
+
+  describe("when the challenge was already detected by the caller", () => {
+    it("reports success with challenge=true once the expected content shows up", async () => {
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+      });
+
+      await expect(
+        waitForExpectedContent(page, ["Wildberries"], {
+          challengeDetected: true,
+        })
+      ).resolves.toEqual({ success: true, challenge: true });
+    });
+
+    it("keeps waiting through blank pages for the challenge timeout instead of the content timeout", async () => {
+      const startedAt = Date.now();
+      const blankDurationMs = CONFIG.contentWaitTimeoutMs + 2_000;
+      const page = createFakePage({
+        body: () =>
+          Promise.resolve(
+            Date.now() - startedAt < blankDurationMs ? "" : "Welcome to Wildberries"
+          ),
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], {
+        challengeDetected: true,
+      });
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+    });
+
+    it("fails with challenge=true after the challenge timeout when content never appears", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({ body: () => Promise.resolve("") });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], {
+        challengeDetected: true,
+      });
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+        CONFIG.challengeWaitTimeoutMs
+      );
+    });
+
+    it("logs the challenge notice exactly once", async () => {
+      const page = createFakePage({
+        body: () => Promise.resolve("Подозрительная активность"),
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], {
+        challengeDetected: true,
+      });
+
+      await vi.runAllTimersAsync();
+
+      await result;
+
+      expect(console.log).toHaveBeenCalledTimes(1);
+      expect(console.log).toHaveBeenCalledWith(
+        "Challenge detected. Waiting up to 30 seconds for automatic resolution..."
+      );
+    });
+  });
+
+  it("does not accept the page address as expected content", async () => {
+    const page = createFakePage({
+      url: () => "https://www.google.com/",
+      title: () => Promise.resolve("loading https://www.google.com/"),
+      body: () => Promise.resolve(""),
+    });
+
+    const result = waitForExpectedContent(page, ["Google"]);
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: false, challenge: false });
+  });
+
+  describe("when the target serves a challenge status", () => {
+    const options = { challengeDetected: true, challengeStatuses: [498] };
+
+    it("waits until the navigation status leaves the challenge status", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+        navigationStatus: () => (Date.now() - startedAt < 2_000 ? 498 : 200),
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(2_000);
+    });
+
+    it("does not accept content while the navigation status is unknown", async () => {
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+      });
+
+      page.evaluate = () => Promise.reject(new Error("navigating"));
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+    });
+
+    it("fails when the page keeps the challenge status", async () => {
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+        navigationStatus: () => 498,
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+    });
   });
 });

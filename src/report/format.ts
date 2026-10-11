@@ -7,7 +7,7 @@ import type {
   ResponseStats,
   TargetResult,
 } from "../results/types.js";
-import { boldWhite, green, red } from "../shared/ansi.js";
+import { boldWhite, green, red, yellow } from "../shared/ansi.js";
 import { CONFIG } from "../shared/config.js";
 
 export interface BenchmarkOutput {
@@ -67,18 +67,40 @@ export function renderTable(
   ].join("\n");
 }
 
+/**
+ * A challenge that resolved by itself is reported as AUTO so that it is not
+ * mistaken for a challenge that blocked the attempt.
+ */
+function formatChallenge(result: AttemptResult): string {
+  if (!result.challenge) {
+    return green("No");
+  }
+
+  return result.contentSuccess ? yellow("AUTO") : red("YES");
+}
+
+function formatStatus(result: AttemptResult): string {
+  const statusText = result.status === null ? "-" : String(result.status);
+
+  if (isSuccessfulStatus(result.status)) {
+    return green(statusText);
+  }
+
+  /*
+   * A request that was accepted despite a non-successful status carries a
+   * challenge status of the target, not a failure.
+   */
+  return result.requestSuccess ? yellow(statusText) : red(statusText);
+}
+
 export function formatAttemptResult(result: AttemptResult): string {
   const requestValue = result.requestSuccess ? green("OK") : red("FAIL");
 
-  const challengeValue = result.challenge ? red("YES") : green("No");
+  const challengeValue = formatChallenge(result);
 
   const contentValue = result.contentSuccess ? green("OK") : red("FAIL");
 
-  const statusText = result.status === null ? "-" : String(result.status);
-
-  const statusValue = isSuccessfulStatus(result.status)
-    ? green(statusText)
-    : red(statusText);
+  const statusValue = formatStatus(result);
 
   const line =
     `Attempt ${String(result.attempt)}/${String(CONFIG.attempts)} ` +

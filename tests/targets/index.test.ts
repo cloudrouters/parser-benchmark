@@ -52,17 +52,56 @@ describe("resolveTargetSet", () => {
     ]);
   });
 
-  it("resolves the ru set with Wildberries only", () => {
+  it("resolves the ru set with Russian services, Wildberries after Yandex Market", () => {
     const { name, targets } = resolveTargetSet("ru");
 
     expect(name).toBe("ru");
-    expect(targets).toEqual([
+    expect(
+      targets.map(({ name: targetName, url, content }) => ({
+        name: targetName,
+        url,
+        content,
+      }))
+    ).toEqual([
+      { name: "Yandex", url: "https://ya.ru/", content: ["Яндекс"] },
+      {
+        name: "Yandex Market",
+        url: "https://market.yandex.ru/",
+        content: ["Яндекс Маркет"],
+      },
       {
         name: "Wildberries",
         url: "https://www.wildberries.ru/",
         content: ["Wildberries"],
-        saveDiagnostics: true,
       },
+      { name: "Ozon", url: "https://www.ozon.ru/", content: ["Ozon"] },
+      { name: "Avito", url: "https://www.avito.ru/", content: ["Авито"] },
+      { name: "HH", url: "https://hh.ru/", content: ["hh.ru"] },
+      { name: "Cian", url: "https://www.cian.ru/", content: ["ЦИАН"] },
+      { name: "Drom", url: "https://www.drom.ru/", content: ["Дром"] },
+      { name: "VK", url: "https://vk.com/", content: ["VK"] },
+      { name: "Yandex Zen", url: "https://dzen.ru/", content: ["Дзен"] },
+    ]);
+  });
+
+  it("requests challenge diagnostics for every ru service", () => {
+    const { targets } = resolveTargetSet("ru");
+
+    expect(targets.every((target) => target.saveDiagnostics === true)).toBe(
+      true
+    );
+  });
+
+  it("keeps the 498 challenge status only for Wildberries", () => {
+    const withChallengeStatuses = resolveTargetSet("ru")
+      .targets.filter((target) => target.challengeStatuses !== undefined)
+      .map(({ name: targetName, challengeStatuses }) => ({
+        name: targetName,
+        challengeStatuses,
+      }));
+
+    expect(withChallengeStatuses).toEqual([
+      { name: "Wildberries", challengeStatuses: [498] },
     ]);
   });
 

@@ -2,7 +2,9 @@ import { getContextOptions } from "../browser/context.js";
 import type { BrowserLike, ContextLike, PageLike } from "../browser/types.js";
 import {
   containsChallenge,
+  getNavigationStatus,
   getPageText,
+  isChallengeStatus,
   isSuccessfulStatus,
   waitForExpectedContent,
   waitForRealNavigation,
@@ -157,14 +159,50 @@ export async function runAttempt(
 
     let challenge = false;
 
-    if (!navigation.stuck && isSuccessfulStatus(navigation.status)) {
+    /*
+     * For a challenge status the reported status becomes the one of the
+     * document that delivered the content, once the challenge page is gone.
+     */
+    let settledStatus: number | null = null;
+
+    /*
+     * Some sites answer with a dedicated status (such as Wildberries' 498)
+     * while their antibot checks the browser, then show the real content.
+     * That response was delivered, so the attempt waits for the challenge.
+     */
+    const challengeStatus = isChallengeStatus(
+      navigation.status,
+      target.challengeStatuses
+    );
+
+    if (
+      !navigation.stuck &&
+      (isSuccessfulStatus(navigation.status) || challengeStatus)
+    ) {
       requestSuccess = true;
 
-      const contentResult = await waitForExpectedContent(page, target.content);
+      const contentResult = await waitForExpectedContent(
+        page,
+        target.content,
+        {
+          challengeDetected: challengeStatus,
+          ...(target.challengeStatuses === undefined
+            ? {}
+            : { challengeStatuses: target.challengeStatuses }),
+        }
+      );
+
+      if (challengeStatus && contentResult.success) {
+        settledStatus = await getNavigationStatus(page);
+      }
 
       contentSuccess = contentResult.success;
 
       challenge = contentResult.challenge;
+
+      // #region agent log
+      fetch('http://127.0.0.1:7662/ingest/262fa771-ba2b-4567-970b-5ade7a07902d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c64b0c'},body:JSON.stringify({sessionId:'c64b0c',runId:'run2',hypothesisId:'H1,H2,H3',location:'runner.ts:attemptResult',message:'attempt outcome',data:{attempt,initialStatus:navigation.status,challengeStatus,contentSuccess,challenge,url:page.url()},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     } else if (!navigation.stuck) {
       challenge = containsChallenge(await getPageText(page));
     }
@@ -193,7 +231,7 @@ export async function runAttempt(
 
     return {
       attempt,
-      status: navigation.stuck ? null : navigation.status,
+      status: navigation.stuck ? null : (settledStatus ?? navigation.status),
       requestSuccess,
       contentSuccess,
       challenge,
