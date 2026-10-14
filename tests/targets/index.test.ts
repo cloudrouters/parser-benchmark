@@ -52,7 +52,7 @@ describe("resolveTargetSet", () => {
     ]);
   });
 
-  it("resolves the ru set with Russian services, Wildberries after Yandex Market", () => {
+  it("resolves the ru set with Russian services, the antibot-protected ones first", () => {
     const { name, targets } = resolveTargetSet("ru");
 
     expect(name).toBe("ru");
@@ -63,24 +63,24 @@ describe("resolveTargetSet", () => {
         content,
       }))
     ).toEqual([
-      { name: "Yandex", url: "https://ya.ru/", content: ["Яндекс"] },
-      {
-        name: "Yandex Market",
-        url: "https://market.yandex.ru/",
-        content: ["Яндекс Маркет"],
-      },
+      { name: "Avito", url: "https://www.avito.ru/", content: ["Авито"] },
       {
         name: "Wildberries",
         url: "https://www.wildberries.ru/",
         content: ["Wildberries"],
       },
       { name: "Ozon", url: "https://www.ozon.ru/", content: ["Ozon"] },
-      { name: "Avito", url: "https://www.avito.ru/", content: ["Авито"] },
-      { name: "HH", url: "https://hh.ru/", content: ["hh.ru"] },
+      { name: "Yandex", url: "https://ya.ru/", content: ["Яндекс"] },
+      {
+        name: "Yandex Market",
+        url: "https://market.yandex.ru/",
+        content: ["Яндекс Маркет"],
+      },
+      { name: "Yandex Zen", url: "https://dzen.ru/", content: ["Дзен"] },
       { name: "Cian", url: "https://www.cian.ru/", content: ["ЦИАН"] },
+      { name: "HH", url: "https://hh.ru/", content: ["hh.ru"] },
       { name: "Drom", url: "https://www.drom.ru/", content: ["Дром"] },
       { name: "VK", url: "https://vk.com/", content: ["VK"] },
-      { name: "Yandex Zen", url: "https://dzen.ru/", content: ["Дзен"] },
     ]);
   });
 
