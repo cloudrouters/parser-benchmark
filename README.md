@@ -68,7 +68,7 @@ To run the test through SOCKS5:
 npm run parser -- "socks5://login:pass@ip:port"
 ```
 
-To test the Russian websites (Yandex, Ozon, Wildberries, and others) in a real Google Chrome:
+To test the Russian websites (Avito, Wildberries, Ozon, Yandex, and others) in a real Google Chrome:
 
 ```bash
 npm run parser -- --targets=ru --browser=chrome
@@ -179,7 +179,7 @@ Selects the set of websites to test. The default is `global`.
 | **Value** | **Websites**                                                                    |
 | --------- | ------------------------------------------------------------------------------- |
 | `global`  | Google, Bing, Amazon, eBay, Walmart, Booking, LinkedIn (default)                |
-| `ru`      | Yandex, Yandex Market, Wildberries, Ozon, Avito, HH, Cian, Drom, VK, Yandex Zen |
+| `ru`      | Avito, Wildberries, Ozon, Yandex, Yandex Market, Yandex Zen, Cian, HH, Drom, VK |
 
 ```bash
 npm run parser -- --targets=global
@@ -208,16 +208,16 @@ The `ru` set (`--targets=ru`) tests:
 
 | **Website**   | **URL**                    |
 | ------------- | -------------------------- |
-| Yandex        | https://ya.ru              |
-| Yandex Market | https://market.yandex.ru   |
+| Avito         | https://www.avito.ru       |
 | Wildberries   | https://www.wildberries.ru |
 | Ozon          | https://www.ozon.ru        |
-| Avito         | https://www.avito.ru       |
-| HH            | https://hh.ru              |
+| Yandex        | https://ya.ru              |
+| Yandex Market | https://market.yandex.ru   |
+| Yandex Zen    | https://dzen.ru            |
 | Cian          | https://www.cian.ru        |
+| HH            | https://hh.ru              |
 | Drom          | https://www.drom.ru        |
 | VK            | https://vk.com             |
-| Yandex Zen    | https://dzen.ru            |
 
 Wildberries checks the browser before showing the website. Use `--browser=chrome` for it: the bundled Chromium is usually not allowed through the check. We recommend `--browser=chrome` for the whole `ru` set.
 
@@ -268,16 +268,16 @@ After a successful request, the program checks the page content.
 | Walmart       | Walmart              |
 | Booking       | Booking.com          |
 | LinkedIn      | LinkedIn             |
+| Avito         | Авито                |
 | Wildberries   | Wildberries          |
+| Ozon          | Ozon                 |
 | Yandex        | Яндекс               |
 | Yandex Market | Яндекс Маркет        |
-| Ozon          | Ozon                 |
-| Avito         | Авито                |
-| HH            | hh.ru                |
+| Yandex Zen    | Дзен                 |
 | Cian          | ЦИАН                 |
+| HH            | hh.ru                |
 | Drom          | Дром                 |
 | VK            | VK                   |
-| Yandex Zen    | Дзен                 |
 
 If the expected content is found:
 
@@ -385,7 +385,9 @@ Wildberries first answers with HTTP status `498` and a stub page ("Провер�
 
 Avito (Qrator antibot) answers with `439` for its check page and `429` for its "Доступ ограничен: проблема с IP" page. The check page usually passes by itself within a second and the real website loads. After that, or instead of it, Avito may ask for a captcha that has to be solved by hand, either as a separate page or as a dialog on top of the already visible website. The dialog appears several seconds after the content, so for such targets content is accepted at once only when the page has fully loaded (`document.readyState` is `complete`) and no challenge text is present. A page that never reports `complete` (Avito through a proxy) is observed until the end of the window instead, and is accepted if the challenge text did not show up.
 
-Such a status is declared per website. At the moment Wildberries (`498`) and Avito (`439`, `429`) declare one. The other `ru` websites have no special handling: if one of them shows a captcha or an antibot page, the attempt is reported as `Challenge: YES` (or `FAIL` for a non-`2xx`/`3xx` status) and the diagnostics are saved, so the stub can be analysed and its handling added.
+Ozon (antibot) answers a new profile with HTTP status `403` and a check page titled "Antibot Challenge Page" that has no text. The page runs its check in the background and reloads itself into the real website after a few seconds. A profile that has passed the check once gets the website at once, so the check shows up only in the first attempt with a new profile (or without `--reuse-context`, in every attempt).
+
+Such a status is declared per website. At the moment Ozon (`403`), Wildberries (`498`) and Avito (`439`, `429`) declare one. The other `ru` websites have no special handling: if one of them shows a captcha or an antibot page, the attempt is reported as `Challenge: YES` (or `FAIL` for a non-`2xx`/`3xx` status) and the diagnostics are saved, so the stub can be analysed and its handling added.
 
 For targets that declare such a status, the response is treated as a delivered request:
 
@@ -393,7 +395,7 @@ For targets that declare such a status, the response is treated as a delivered r
 Request: OK | Challenge: AUTO | Content: OK | HTTP status: 200
 ```
 
-The program then waits up to 30 seconds for the stub to be replaced with the real content. When the challenge disappears, the page gets a fresh window to load, so the time a person needed to solve a captcha is not taken from it. Content is accepted only when the page itself reports a status other than `498`, so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
+The program then waits up to 30 seconds for the stub to be replaced with the real content. When the challenge disappears, the page gets a fresh window to load, so the time a person needed to solve a captcha is not taken from it. Content is accepted only when the page itself reports a status other than the declared ones (for example `498`), so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
 
 If the stub does not go away, the attempt is reported as `Challenge: YES | Content: FAIL` and keeps the original status, for example `498` or `439` (shown in yellow, because the request itself was delivered).
 
@@ -439,7 +441,7 @@ If a challenge is detected during an attempt, the time spent waiting for it is i
 ## Limitations
 
 * With `--browser=chrome`, stopping the program with `Ctrl+C` does not delete the temporary Chrome profile, and the Chrome window it started may stay open. Close the window if needed and remove the leftover `parser-benchmark-chrome-*` directories from the system temporary folder manually.
-* Only Wildberries (`498`) and Avito (`439`, `429`) have dedicated challenge statuses. Captchas of the other `ru` websites are only detected by the generic indicators listed above.
+* Only Ozon (`403`), Wildberries (`498`) and Avito (`439`, `429`) have dedicated challenge statuses. Captchas of the other `ru` websites are only detected by the generic indicators listed above.
 * In our test runs from one direct connection Avito showed a captcha that has to be solved by hand in every attempt with a new profile. Other connections may behave differently. An unsolved captcha is reported as `Challenge: YES`; a captcha solved by hand is reported as `Challenge: MANUAL`.
 * `Challenge: MANUAL` is available with `--browser=chrome` only. With Chromium launched by Playwright a challenge passed by a person is reported as `AUTO`.
 * A Chrome that has to be killed instead of quitting normally may lose the cookies it had not written to the profile yet.
