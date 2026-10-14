@@ -5,6 +5,7 @@ import {
   containsExpectedContent,
   getNavigationStatus,
   getPageText,
+  getReadyState,
   isChallengeStatus,
   isRealHttpUrl,
   isSuccessfulStatus,
@@ -67,6 +68,7 @@ describe("containsChallenge", () => {
     "проверяем браузер",
     "подозрительная активность",
     "подозрительную активность",
+    "доступ ограничен",
   ])("detects the %j indicator", (pattern) => {
     expect(containsChallenge(`some text ${pattern} more text`)).toBe(true);
   });
@@ -218,6 +220,31 @@ describe("getNavigationStatus", () => {
     page.evaluate = () => Promise.resolve("498");
 
     await expect(getNavigationStatus(page)).resolves.toBeNull();
+  });
+});
+
+describe("getReadyState", () => {
+  it("returns the load state reported by the page", async () => {
+    const page = createFakePage({ readyState: () => "interactive" });
+
+    await expect(getReadyState(page)).resolves.toBe("interactive");
+  });
+
+  it("treats a failed read during navigation as unknown", async () => {
+    const page = createFakePage();
+
+    page.evaluate = () =>
+      Promise.reject(new Error("Execution context was destroyed"));
+
+    await expect(getReadyState(page)).resolves.toBeNull();
+  });
+
+  it("treats a non-string answer as unknown", async () => {
+    const page = createFakePage();
+
+    page.evaluate = () => Promise.resolve(200);
+
+    await expect(getReadyState(page)).resolves.toBeNull();
   });
 });
 
@@ -515,6 +542,297 @@ describe("waitForExpectedContent", () => {
       await vi.runAllTimersAsync();
 
       await expect(result).resolves.toEqual({ success: false, challenge: true });
+    });
+
+    it("does not accept content before the page finished loading", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+        readyState: () => (Date.now() - startedAt < 3_000 ? "interactive" : "complete"),
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(3_000);
+    });
+
+    /*
+     * Regression: through a proxy Avito stays on `readyState: interactive`
+     * for as long as it is observed (logged: 30 s), although the page, its
+     * content and its status were fine. Waiting for `complete` forever
+     * reported such an attempt as Content: FAIL.
+     */
+    it("accepts delivered content at the end of the window when the page never reaches the complete load state", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+        readyState: () => "interactive",
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+        CONFIG.challengeWaitTimeoutMs
+      );
+    });
+
+    it("accepts delivered content at the end of the window when the load state is unknown", async () => {
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+      });
+
+      page.evaluate = (expression) =>
+        expression.includes("readyState")
+          ? Promise.reject(new Error("navigating"))
+          : Promise.resolve(200);
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+    });
+  });
+
+  describe("when the antibot shows its captcha after the content loaded (Avito)", () => {
+    const options = { challengeDetected: true, challengeStatuses: [439, 429] };
+    const CAPTCHA_DIALOG =
+      "Авито — объявления. Доступ ограничен: проблема с IP. " +
+      "Нажмите на кнопку Продолжить для решения капчи";
+
+    it("fails with challenge=true when a captcha dialog appears over the loaded page", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        body: () =>
+          Promise.resolve(
+            Date.now() - startedAt < 4_000 ? "Объявления на сайте Авито" : CAPTCHA_DIALOG
+          ),
+        // The dialog shows up while the page is still loading.
+        readyState: () => (Date.now() - startedAt < 8_000 ? "interactive" : "complete"),
+      });
+
+      const result = waitForExpectedContent(page, ["Авито"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+    });
+
+    it("fails with challenge=true when the antibot replaces the page with its captcha stub", async () => {
+      const page = createFakePage({
+        title: () => Promise.resolve("Доступ ограничен: проблема с IP"),
+        body: () => Promise.resolve("Нажмите на кнопку Продолжить для решения капчи"),
+        navigationStatus: () => 429,
+      });
+
+      const result = waitForExpectedContent(page, ["Авито"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+    });
+
+    it("reports success with challenge=true when the page loads without a captcha", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        title: () =>
+          Promise.resolve(
+            Date.now() - startedAt < 1_000
+              ? "Доступ ограничен: проверка безопасности"
+              : "Авито — объявления"
+          ),
+        body: () =>
+          Promise.resolve(
+            Date.now() - startedAt < 1_000
+              ? "Проверка пройдена, перенаправление..."
+              : "Объявления на сайте Авито"
+          ),
+        navigationStatus: () => (Date.now() - startedAt < 1_000 ? 439 : 200),
+        readyState: () => (Date.now() - startedAt < 3_000 ? "interactive" : "complete"),
+      });
+
+      const result = waitForExpectedContent(page, ["Авито"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+    });
+
+    describe("without a challenge status on the first response", () => {
+      const withoutChallengeStatus = { challengeStatuses: [439, 429] };
+
+      it("accepts a loaded page with its content when the load state stays interactive", async () => {
+        const startedAt = Date.now();
+        const page = createFakePage({
+          body: () => Promise.resolve("Объявления на сайте Авито"),
+          readyState: () => "interactive",
+        });
+
+        const result = waitForExpectedContent(
+          page,
+          ["Авито"],
+          withoutChallengeStatus
+        );
+
+        await vi.runAllTimersAsync();
+
+        await expect(result).resolves.toEqual({
+          success: true,
+          challenge: false,
+        });
+        // The late captcha dialog must still have its chance to show up.
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+          CONFIG.contentWaitTimeoutMs
+        );
+      });
+
+      it("still reports a captcha dialog that shows up while the load state stays interactive", async () => {
+        const startedAt = Date.now();
+        const page = createFakePage({
+          body: () =>
+            Promise.resolve(
+              Date.now() - startedAt < 3_000
+                ? "Объявления на сайте Авито"
+                : CAPTCHA_DIALOG
+            ),
+          readyState: () => "interactive",
+        });
+
+        const result = waitForExpectedContent(
+          page,
+          ["Авито"],
+          withoutChallengeStatus
+        );
+
+        await vi.runAllTimersAsync();
+
+        await expect(result).resolves.toEqual({
+          success: false,
+          challenge: true,
+        });
+      });
+
+      it("does not accept the content while the page still reports a challenge status", async () => {
+        const page = createFakePage({
+          body: () => Promise.resolve("Объявления на сайте Авито"),
+          navigationStatus: () => 429,
+          readyState: () => "interactive",
+        });
+
+        const result = waitForExpectedContent(
+          page,
+          ["Авито"],
+          withoutChallengeStatus
+        );
+
+        await vi.runAllTimersAsync();
+
+        await expect(result).resolves.toEqual({
+          success: false,
+          challenge: false,
+        });
+      });
+    });
+
+    /*
+     * Regression: the 30 seconds started when the captcha appeared and
+     * included the time a person needed to solve it, so a page that loaded
+     * after the solution had almost no time left (logged: content at 23.4 s,
+     * deadline at 30.0 s).
+     */
+    describe("when a person solves the captcha", () => {
+      it("gives the page a fresh window to load once the captcha is gone", async () => {
+        const startedAt = Date.now();
+        const solvedAtMs = 25_000;
+        const page = createFakePage({
+          body: () =>
+            Promise.resolve(
+              Date.now() - startedAt < solvedAtMs
+                ? CAPTCHA_DIALOG
+                : "Объявления на сайте Авито"
+            ),
+          navigationStatus: () => (Date.now() - startedAt < solvedAtMs ? 429 : 200),
+          readyState: () => "interactive",
+        });
+
+        const result = waitForExpectedContent(page, ["Авито"], options);
+
+        await vi.runAllTimersAsync();
+
+        await expect(result).resolves.toEqual({ success: true, challenge: true });
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+          solvedAtMs + CONFIG.contentWaitTimeoutMs
+        );
+      });
+
+      /*
+       * Regression: Avito's own check page (439) passes by itself in about
+       * 1.4 s, the real page then stays unchanged and never reaches the
+       * complete load state. The attempt kept waiting for what was left of
+       * the 30 s challenge window (logged: 30.2 s instead of about 6.5 s).
+       */
+      it("does not wait out the rest of a long challenge window once the challenge is gone", async () => {
+        const startedAt = Date.now();
+        const goneAtMs = 1_500;
+        const page = createFakePage({
+          body: () =>
+            Promise.resolve(
+              Date.now() - startedAt < goneAtMs
+                ? CAPTCHA_DIALOG
+                : "Объявления на сайте Авито"
+            ),
+          navigationStatus: () => (Date.now() - startedAt < goneAtMs ? 439 : 200),
+          readyState: () => "interactive",
+        });
+
+        const result = waitForExpectedContent(page, ["Авито"], options);
+
+        await vi.runAllTimersAsync();
+
+        await expect(result).resolves.toEqual({ success: true, challenge: true });
+
+        const elapsed = Date.now() - startedAt;
+
+        expect(elapsed).toBeGreaterThanOrEqual(
+          goneAtMs + CONFIG.contentWaitTimeoutMs
+        );
+        expect(elapsed).toBeLessThan(
+          goneAtMs + CONFIG.contentWaitTimeoutMs + 1_000
+        );
+      });
+
+      it("keeps waiting when the captcha comes back during the fresh window", async () => {
+        const startedAt = Date.now();
+        const page = createFakePage({
+          body: () => {
+            const elapsed = Date.now() - startedAt;
+
+            if (elapsed < 10_000) {
+              return Promise.resolve(CAPTCHA_DIALOG);
+            }
+
+            if (elapsed < 12_000) {
+              return Promise.resolve("Объявления на сайте Авито");
+            }
+
+            return Promise.resolve(CAPTCHA_DIALOG);
+          },
+          // The page is still loading, so the content alone is not final.
+          readyState: () => "interactive",
+        });
+
+        const result = waitForExpectedContent(page, ["Авито"], options);
+
+        await vi.runAllTimersAsync();
+
+        await expect(result).resolves.toEqual({ success: false, challenge: true });
+      });
     });
   });
 });

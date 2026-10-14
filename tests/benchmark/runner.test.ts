@@ -33,6 +33,22 @@ const WILDBERRIES = createTarget({
   challengeStatuses: [498],
 });
 
+const OZON = createTarget({
+  name: "Ozon",
+  url: "https://www.ozon.ru/",
+  content: ["Ozon"],
+  saveDiagnostics: true,
+  challengeStatuses: [403],
+});
+
+const AVITO = createTarget({
+  name: "Avito",
+  url: "https://www.avito.ru/",
+  content: ["Авито"],
+  saveDiagnostics: true,
+  challengeStatuses: [439, 429],
+});
+
 function createPageWithBody(
   body: string,
   options: FakePageOptions = {}
@@ -67,6 +83,7 @@ describe("runAttempt", () => {
       requestSuccess: true,
       contentSuccess: true,
       challenge: false,
+      manualChallenge: false,
       responseTime: 0,
       finalUrl: "https://example.com/",
       title: "Example",
@@ -98,6 +115,30 @@ describe("runAttempt", () => {
 
     expect(browser.newContext).not.toHaveBeenCalled();
     expect(page.close).toHaveBeenCalledTimes(1);
+    expect(context.close).not.toHaveBeenCalled();
+  });
+
+  it("closes the context it opened when no page can be opened", async () => {
+    const context = createFakeContext();
+
+    context.newPage.mockRejectedValue(new Error("Chrome did not start"));
+
+    const browser = createFakeBrowser(() => context);
+
+    await expect(
+      runAttempt(browser, createTarget(), 1, null)
+    ).rejects.toThrow("Chrome did not start");
+    expect(context.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a shared context to its owner when no page can be opened", async () => {
+    const context = createFakeContext();
+
+    context.newPage.mockRejectedValue(new Error("Chrome did not start"));
+
+    await expect(
+      runAttempt(createFakeBrowser(), createTarget(), 1, null, context)
+    ).rejects.toThrow("Chrome did not start");
     expect(context.close).not.toHaveBeenCalled();
   });
 
@@ -317,6 +358,40 @@ describe("runAttempt with a challenge status", () => {
     });
   });
 
+  it("waits for the Ozon check page (403, empty body) to reload itself into the site", async () => {
+    // Observed: 403 "Antibot Challenge Page" with no text, a POST to
+    // /abt/result about 3.6 s later, then a reload that answers 200.
+    const startedAt = Date.now();
+    const isChecking = (): boolean => Date.now() - startedAt < 4_000;
+    const page = createFakePage({
+      goto: () => Promise.resolve(createResponse(403)),
+      navigationStatus: () => (isChecking() ? 403 : 200),
+      title: () =>
+        Promise.resolve(
+          isChecking()
+            ? "Antibot Challenge Page"
+            : "Ozon маркетплейс – миллионы товаров"
+        ),
+      body: () =>
+        Promise.resolve(isChecking() ? "" : "Каталог Везде Войти Заказы"),
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, OZON, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      challenge: true,
+      manualChallenge: false,
+      error: null,
+    });
+    expect(page.screenshot).not.toHaveBeenCalled();
+  });
+
   it("reports an unresolved challenge and saves diagnostics", async () => {
     const page = createPageWithBody(
       "Что-то не так... Подозрительная активность. Пожалуйста, подождите.",
@@ -362,6 +437,167 @@ describe("runAttempt with a challenge status", () => {
     await expect(promise).resolves.toMatchObject({
       status: 498,
       contentSuccess: false,
+    });
+  });
+
+  it("treats 439 as a delivered request and reports an Avito captcha that needs manual solving", async () => {
+    const page = createPageWithBody(
+      "Доступ ограничен: проблема с IP. Нажмите на кнопку Продолжить для решения капчи",
+      {
+        goto: () => Promise.resolve(createResponse(439)),
+        navigationStatus: () => 429,
+      }
+    );
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, AVITO, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    const result = await promise;
+
+    expect(result).toMatchObject({
+      status: 439,
+      requestSuccess: true,
+      contentSuccess: false,
+      challenge: true,
+    });
+    expect(page.screenshot).toHaveBeenCalledWith({
+      path: "avito-challenge-1.png",
+      fullPage: true,
+    });
+    expect(formatAttemptResult(result)).toContain("Challenge: ");
+    expect(formatAttemptResult(result)).toContain("Request: ");
+  });
+
+  it("reports an Avito check that passed by itself as AUTO", async () => {
+    const startedAt = Date.now();
+    const page = createFakePage({
+      goto: () => Promise.resolve(createResponse(439)),
+      navigationStatus: () => (Date.now() - startedAt < 1_000 ? 439 : 200),
+      body: () =>
+        Promise.resolve(
+          Date.now() - startedAt < 1_000
+            ? "Доступ ограничен: проверка безопасности. Проверка пройдена, перенаправление..."
+            : "Объявления на сайте Авито"
+        ),
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+    const promise = runAttempt(browser, AVITO, 1, null);
+
+    await vi.runAllTimersAsync();
+
+    await expect(promise).resolves.toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      challenge: true,
+    });
+    expect(page.screenshot).not.toHaveBeenCalled();
+  });
+
+  describe("when a person solves the captcha", () => {
+    const CAPTCHA_PAGE =
+      "Доступ ограничен: проблема с IP. Нажмите на кнопку Продолжить для решения капчи";
+
+    /*
+     * Logged for Avito: the stub (429) was solved after 19-27 seconds, the
+     * real page (200) loaded afterwards and stayed on `readyState:
+     * interactive`. The attempt was reported as Challenge: YES, Content: FAIL
+     * and HTTP status 429.
+     */
+    function createSolvedCaptchaPage(userInput: FakePageOptions["userInput"]) {
+      const startedAt = Date.now();
+      const solvedAtMs = 20_000;
+      const solved = (): boolean => Date.now() - startedAt >= solvedAtMs;
+
+      return createFakePage({
+        goto: () => Promise.resolve(createResponse(429)),
+        navigationStatus: () => (solved() ? 200 : 429),
+        body: () =>
+          Promise.resolve(solved() ? "Объявления на сайте Авито" : CAPTCHA_PAGE),
+        readyState: () => "interactive",
+        ...(userInput === undefined ? {} : { userInput }),
+      });
+    }
+
+    it("reports the attempt as delivered content with the status of the loaded page", async () => {
+      const page = createSolvedCaptchaPage(() => true);
+      const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+      const promise = runAttempt(browser, AVITO, 1, null);
+
+      await vi.runAllTimersAsync();
+
+      await expect(promise).resolves.toMatchObject({
+        status: 200,
+        requestSuccess: true,
+        contentSuccess: true,
+        challenge: true,
+        manualChallenge: true,
+      });
+      expect(page.screenshot).not.toHaveBeenCalled();
+    });
+
+    it("marks the challenge as manual only when a person interacted with the page", async () => {
+      const page = createSolvedCaptchaPage(() => false);
+      const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+      const promise = runAttempt(browser, AVITO, 1, null);
+
+      await vi.runAllTimersAsync();
+
+      await expect(promise).resolves.toMatchObject({
+        challenge: true,
+        contentSuccess: true,
+        manualChallenge: false,
+      });
+    });
+
+    it("cannot mark the challenge as manual when the page does not track input", async () => {
+      const page = createSolvedCaptchaPage(undefined);
+      const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+      const promise = runAttempt(browser, AVITO, 1, null);
+
+      await vi.runAllTimersAsync();
+
+      await expect(promise).resolves.toMatchObject({
+        challenge: true,
+        contentSuccess: true,
+        manualChallenge: false,
+      });
+    });
+
+    it("does not call an attempt manual when there was no challenge", async () => {
+      const page = createPageWithBody("Welcome to Example", {
+        userInput: () => true,
+      });
+      const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+      await expect(
+        runAttempt(browser, createTarget(), 1, null)
+      ).resolves.toMatchObject({ challenge: false, manualChallenge: false });
+    });
+
+    it("does not call an attempt manual when the challenge stayed unresolved", async () => {
+      const page = createPageWithBody(CAPTCHA_PAGE, {
+        goto: () => Promise.resolve(createResponse(429)),
+        navigationStatus: () => 429,
+        userInput: () => true,
+      });
+      const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+      const promise = runAttempt(browser, AVITO, 1, null);
+
+      await vi.runAllTimersAsync();
+
+      await expect(promise).resolves.toMatchObject({
+        challenge: true,
+        contentSuccess: false,
+        manualChallenge: false,
+      });
     });
   });
 

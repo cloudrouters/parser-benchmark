@@ -1,15 +1,16 @@
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createChromeProfile,
   forceKillProcessTree,
   parseDevToolsActivePort,
   startChromeProcess,
-  type ChromeProcess,
   type ChromeProcessDeps,
+  type ChromeProfile,
 } from "../../../src/browser/chrome/process.js";
 
 class FakeChrome extends EventEmitter {
@@ -27,23 +28,31 @@ interface Harness {
   deps: ChromeProcessDeps;
   spawn: ReturnType<typeof vi.fn>;
   forceKillTree: ReturnType<typeof vi.fn>;
-  profileDir: () => string;
+  profile: ChromeProfile;
 }
 
-function createHarness(
+const createdProfiles: ChromeProfile[] = [];
+
+async function createProfile(): Promise<ChromeProfile> {
+  const profile = await createChromeProfile();
+
+  createdProfiles.push(profile);
+
+  return profile;
+}
+
+async function createHarness(
   onSpawn: (child: FakeChrome, userDataDir: string) => void = (_child, dir) => {
     writeFileSync(`${dir}/DevToolsActivePort`, "9222\n/devtools/browser/abc\n");
   }
-): Harness {
+): Promise<Harness> {
   const child = new FakeChrome();
-  let userDataDir = "";
+  const profile = await createProfile();
 
   const spawn = vi.fn((_command: string, args: readonly string[]) => {
     const flag = args.find((arg) => arg.startsWith("--user-data-dir="));
 
-    userDataDir = flag?.slice("--user-data-dir=".length) ?? "";
-    mkdirSync(userDataDir, { recursive: true });
-    onSpawn(child, userDataDir);
+    onSpawn(child, flag?.slice("--user-data-dir=".length) ?? "");
 
     return child;
   });
@@ -53,7 +62,7 @@ function createHarness(
     child,
     spawn,
     forceKillTree,
-    profileDir: () => userDataDir,
+    profile,
     deps: {
       locateExecutable: () => "/path/to/chrome",
       spawn,
@@ -62,26 +71,22 @@ function createHarness(
   };
 }
 
-const startedProcesses: ChromeProcess[] = [];
-
-async function start(
+function start(
   harness: Harness,
   options: { proxyServer?: string | null; startTimeoutMs?: number } = {}
-): Promise<ChromeProcess> {
-  const chrome = await startChromeProcess(
-    { proxyServer: options.proxyServer ?? null, startTimeoutMs: options.startTimeoutMs },
+): ReturnType<typeof startChromeProcess> {
+  return startChromeProcess(
+    {
+      proxyServer: options.proxyServer ?? null,
+      userDataDir: harness.profile.directory,
+      startTimeoutMs: options.startTimeoutMs,
+    },
     harness.deps
   );
-
-  startedProcesses.push(chrome);
-
-  return chrome;
 }
 
 afterEach(async () => {
-  await Promise.all(
-    startedProcesses.splice(0).map((chrome) => chrome.removeProfile())
-  );
+  await Promise.all(createdProfiles.splice(0).map((profile) => profile.remove()));
 });
 
 describe("parseDevToolsActivePort", () => {
@@ -105,9 +110,42 @@ describe("parseDevToolsActivePort", () => {
   );
 });
 
+describe("createChromeProfile", () => {
+  it("creates an empty directory for the profile", async () => {
+    const profile = await createProfile();
+
+    expect(existsSync(profile.directory)).toBe(true);
+  });
+
+  it("creates a different profile every time", async () => {
+    const first = await createProfile();
+    const second = await createProfile();
+
+    expect(first.directory).not.toBe(second.directory);
+  });
+
+  it("removes its directory", async () => {
+    const profile = await createProfile();
+
+    writeFileSync(`${profile.directory}/Cookies`, "stored");
+
+    await profile.remove();
+
+    expect(existsSync(profile.directory)).toBe(false);
+  });
+
+  it("tolerates removing a profile that is already gone", async () => {
+    const profile = await createProfile();
+
+    await rm(profile.directory, { recursive: true, force: true });
+
+    await expect(profile.remove()).resolves.toBeUndefined();
+  });
+});
+
 describe("startChromeProcess", () => {
-  it("spawns the located executable with a temporary profile and returns the DevTools endpoint", async () => {
-    const harness = createHarness();
+  it("spawns the located executable with the given profile and returns the DevTools endpoint", async () => {
+    const harness = await createHarness();
 
     const chrome = await start(harness, {
       proxyServer: "http://127.0.0.1:12345",
@@ -119,23 +157,12 @@ describe("startChromeProcess", () => {
     const [command, args] = harness.spawn.mock.calls[0] as [string, string[]];
 
     expect(command).toBe("/path/to/chrome");
-    expect(args).toContain(`--user-data-dir=${harness.profileDir()}`);
+    expect(args).toContain(`--user-data-dir=${harness.profile.directory}`);
     expect(args).toContain("--proxy-server=http://127.0.0.1:12345");
-    expect(harness.profileDir()).not.toBe("");
-  });
-
-  it("creates a different profile for every launch", async () => {
-    const first = createHarness();
-    const second = createHarness();
-
-    await start(first);
-    await start(second);
-
-    expect(first.profileDir()).not.toBe(second.profileDir());
   });
 
   it("waits until Chrome writes the DevToolsActivePort file", async () => {
-    const harness = createHarness((_child, dir) => {
+    const harness = await createHarness((_child, dir) => {
       setTimeout(() => {
         writeFileSync(`${dir}/DevToolsActivePort`, "9333\n/devtools/browser/x");
       }, 250);
@@ -146,45 +173,76 @@ describe("startChromeProcess", () => {
     expect(chrome.endpoint).toBe("http://127.0.0.1:9333");
   });
 
-  it("removes the profile and reports the exit code when Chrome exits before it is ready", async () => {
-    const harness = createHarness((child) => {
+  /*
+   * A profile is started many times. A Chrome that was killed leaves its
+   * DevToolsActivePort behind, and the next start must not connect to the
+   * port of the previous, dead process.
+   */
+  it("ignores the DevToolsActivePort file left by a previous Chrome of the same profile", async () => {
+    const harness = await createHarness((_child, dir) => {
+      setTimeout(() => {
+        writeFileSync(`${dir}/DevToolsActivePort`, "9444\n/devtools/browser/new");
+      }, 250);
+    });
+
+    writeFileSync(
+      `${harness.profile.directory}/DevToolsActivePort`,
+      "1111\n/devtools/browser/old"
+    );
+
+    const chrome = await start(harness);
+
+    expect(chrome.endpoint).toBe("http://127.0.0.1:9444");
+  });
+
+  it("keeps the other files of the profile so that its storage survives a restart", async () => {
+    const harness = await createHarness();
+
+    writeFileSync(`${harness.profile.directory}/Cookies`, "stored");
+
+    await start(harness);
+
+    expect(existsSync(`${harness.profile.directory}/Cookies`)).toBe(true);
+  });
+
+  it("reports the exit code and keeps the profile when Chrome exits before it is ready", async () => {
+    const harness = await createHarness((child) => {
       setTimeout(() => {
         child.exit(7);
       }, 50);
     });
 
-    await expect(startChromeProcess({ proxyServer: null }, harness.deps)).rejects.toThrow(
+    await expect(start(harness)).rejects.toThrow(
       "Chrome exited with code 7 before DevTools became available."
     );
-    expect(existsSync(harness.profileDir())).toBe(false);
+    expect(existsSync(harness.profile.directory)).toBe(true);
   });
 
-  it("kills Chrome and removes the profile when DevTools does not become available in time", async () => {
+  it("kills Chrome and keeps the profile when DevTools does not become available in time", async () => {
     // Chrome never writes DevToolsActivePort.
-    const harness = createHarness(() => undefined);
+    const harness = await createHarness(() => undefined);
 
-    await expect(
-      startChromeProcess({ proxyServer: null, startTimeoutMs: 300 }, harness.deps)
-    ).rejects.toThrow("Chrome did not expose DevTools within 0.3 seconds.");
+    await expect(start(harness, { startTimeoutMs: 300 })).rejects.toThrow(
+      "Chrome did not expose DevTools within 0.3 seconds."
+    );
     expect(harness.forceKillTree).toHaveBeenCalledWith(4242);
-    expect(existsSync(harness.profileDir())).toBe(false);
+    expect(existsSync(harness.profile.directory)).toBe(true);
   });
 
-  it("reports a failure to spawn the executable and removes the profile", async () => {
-    const harness = createHarness((child) => {
+  it("reports a failure to spawn the executable", async () => {
+    const harness = await createHarness((child) => {
       setTimeout(() => {
         child.emit("error", new Error("spawn /path/to/chrome ENOENT"));
       }, 50);
     });
 
-    await expect(startChromeProcess({ proxyServer: null }, harness.deps)).rejects.toThrow(
+    await expect(start(harness)).rejects.toThrow(
       "Could not start Chrome: spawn /path/to/chrome ENOENT"
     );
-    expect(existsSync(harness.profileDir())).toBe(false);
   });
 
-  it("does not create a profile when Chrome cannot be located", async () => {
-    const harness = createHarness();
+  it("does not spawn anything when Chrome cannot be located", async () => {
+    const harness = await createHarness();
     const failing: ChromeProcessDeps = {
       ...harness.deps,
       locateExecutable: () => {
@@ -192,36 +250,19 @@ describe("startChromeProcess", () => {
       },
     };
 
-    await expect(startChromeProcess({ proxyServer: null }, failing)).rejects.toThrow(
-      "Google Chrome was not found."
-    );
+    await expect(
+      startChromeProcess(
+        { proxyServer: null, userDataDir: harness.profile.directory },
+        failing
+      )
+    ).rejects.toThrow("Google Chrome was not found.");
     expect(harness.spawn).not.toHaveBeenCalled();
   });
 });
 
 describe("ChromeProcess", () => {
-  it("removes its profile directory", async () => {
-    const harness = createHarness();
-    const chrome = await start(harness);
-
-    expect(existsSync(harness.profileDir())).toBe(true);
-
-    await chrome.removeProfile();
-
-    expect(existsSync(harness.profileDir())).toBe(false);
-  });
-
-  it("tolerates removing a profile that is already gone", async () => {
-    const harness = createHarness();
-    const chrome = await start(harness);
-
-    await rm(harness.profileDir(), { recursive: true, force: true });
-
-    await expect(chrome.removeProfile()).resolves.toBeUndefined();
-  });
-
   it("reports an already exited process without waiting", async () => {
-    const harness = createHarness();
+    const harness = await createHarness();
     const chrome = await start(harness);
 
     harness.child.exit(0);
@@ -230,7 +271,7 @@ describe("ChromeProcess", () => {
   });
 
   it("reports an exit that happens while waiting", async () => {
-    const harness = createHarness();
+    const harness = await createHarness();
     const chrome = await start(harness);
 
     const waiting = chrome.waitForExit(5_000);
@@ -243,14 +284,14 @@ describe("ChromeProcess", () => {
   });
 
   it("gives up waiting when the process keeps running", async () => {
-    const harness = createHarness();
+    const harness = await createHarness();
     const chrome = await start(harness);
 
     await expect(chrome.waitForExit(100)).resolves.toBe(false);
   });
 
   it("kills the whole process tree on request", async () => {
-    const harness = createHarness();
+    const harness = await createHarness();
     const chrome = await start(harness);
 
     await chrome.forceKill();
@@ -259,7 +300,7 @@ describe("ChromeProcess", () => {
   });
 
   it("does not try to kill a process that has already exited", async () => {
-    const harness = createHarness();
+    const harness = await createHarness();
     const chrome = await start(harness);
 
     harness.child.exit(0);

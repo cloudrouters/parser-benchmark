@@ -11,7 +11,7 @@ import {
   formatSummary,
   renderTable,
 } from "../../src/report/format.js";
-import { green, red, yellow } from "../../src/shared/ansi.js";
+import { cyan, green, red, yellow } from "../../src/shared/ansi.js";
 import { CONFIG } from "../../src/shared/config.js";
 import {
   createAttemptResult,
@@ -113,6 +113,34 @@ describe("formatAttemptResult", () => {
     expect(stripVTControlCharacters(line)).toContain("Challenge: AUTO |");
     expect(line).toContain(yellow("AUTO"));
     expect(line).not.toContain(red("YES"));
+  });
+
+  it("reports a challenge that a person solved as MANUAL, not as AUTO", () => {
+    const line = formatAttemptResult(
+      createAttemptResult({
+        challenge: true,
+        contentSuccess: true,
+        manualChallenge: true,
+      })
+    );
+
+    expect(stripVTControlCharacters(line)).toContain("Challenge: MANUAL |");
+    expect(line).toContain(cyan("MANUAL"));
+    expect(line).not.toContain("AUTO");
+    expect(line).not.toContain(red("YES"));
+  });
+
+  it("reports a challenge that stayed unresolved as YES even if a person tried", () => {
+    const line = formatAttemptResult(
+      createAttemptResult({
+        challenge: true,
+        contentSuccess: false,
+        manualChallenge: true,
+      })
+    );
+
+    expect(stripVTControlCharacters(line)).toContain("Challenge: YES |");
+    expect(line).not.toContain("MANUAL");
   });
 
   it("shows a challenge status that the target accepted in yellow", () => {

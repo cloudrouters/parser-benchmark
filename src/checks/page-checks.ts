@@ -76,6 +76,21 @@ export async function getNavigationStatus(
 }
 
 /**
+ * `document.readyState` of the page. Returns `null` when it cannot be read,
+ * for example while the page is navigating.
+ */
+export async function getReadyState(page: PageReader): Promise<string | null> {
+  try {
+    const value = await page.evaluate("document.readyState");
+
+    return typeof value === "string" ? value : null;
+  } catch {
+    // Reading fails while the page navigates; the caller polls again.
+    return null;
+  }
+}
+
+/**
  * The page's own address is not page content: a loading page titled
  * "loading https://www.example.com/" must not satisfy a check for "example".
  */
@@ -151,6 +166,10 @@ export interface WaitForContentOptions {
    * Statuses that the target serves together with its challenge page. When
    * given, content only counts once the page itself reports a status that is
    * not one of them, that is, once the challenge page has been replaced.
+   * Antibots such as Avito's show their captcha dialog on top of the already
+   * visible content while the page is still loading, so content is accepted
+   * early only when the page also finished loading. Otherwise the whole
+   * window is observed first, because a page may never report `complete`.
    */
   challengeStatuses?: readonly number[];
 }
@@ -166,15 +185,31 @@ export async function waitForExpectedContent(
 
   let challengeLogged = false;
 
-  const isSettled = async (): Promise<boolean> => {
+  /*
+   * `requireLoaded` is dropped for the final check at the end of the window.
+   * Some pages (Avito through a proxy) never reach `readyState: complete`
+   * while being fully usable, so waiting for it forever would fail them.
+   */
+  const isSettled = async (requireLoaded: boolean): Promise<boolean> => {
     if (options.challengeStatuses === undefined) {
       return true;
     }
 
     const status = await getNavigationStatus(page);
 
-    return status !== null && !isChallengeStatus(status, options.challengeStatuses);
+    if (status === null || isChallengeStatus(status, options.challengeStatuses)) {
+      return false;
+    }
+
+    return !requireLoaded || (await getReadyState(page)) === "complete";
   };
+
+  /*
+   * True while the previous poll saw a challenge. When it disappears, the
+   * page gets a fresh window to load instead of the rest of the challenge
+   * window, which includes the time a person needed to solve the captcha.
+   */
+  let challengeShownLastPoll = false;
 
   if (options.challengeDetected === true) {
     challengeDetected = true;
@@ -186,34 +221,12 @@ export async function waitForExpectedContent(
     challengeLogged = true;
   }
 
-  // #region agent log
-  const dbgStartedAt = Date.now();
-  let dbgLastSignature = "";
-  // #endregion
-
   while (Date.now() < deadline) {
     const text = await getPageText(page);
 
     const currentChallenge = containsChallenge(text);
 
     const currentContent = containsExpectedContent(text, expectedContent);
-
-    // #region agent log
-    {
-      const dbgNavStatus = await getNavigationStatus(page);
-      let dbgSnapshot = "n/a";
-      try {
-        dbgSnapshot = String(await page.evaluate("JSON.stringify({readyState:document.readyState,title:document.title,bodyLen:document.body?document.body.innerText.length:0,htmlLen:document.documentElement.outerHTML.length})"));
-      } catch (dbgError) {
-        dbgSnapshot = `evaluate failed: ${dbgError instanceof Error ? dbgError.message.slice(0, 100) : String(dbgError)}`;
-      }
-      const dbgSignature = `${String(currentChallenge)}|${String(currentContent)}|${String(dbgNavStatus)}|${text.slice(0, 80)}|${dbgSnapshot}`;
-      if (dbgSignature !== dbgLastSignature) {
-        dbgLastSignature = dbgSignature;
-        fetch('http://127.0.0.1:7662/ingest/262fa771-ba2b-4567-970b-5ade7a07902d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c64b0c'},body:JSON.stringify({sessionId:'c64b0c',runId:'run2',hypothesisId:'H1,H2,H3,H4',location:'page-checks.ts:poll',message:'poll state changed',data:{elapsedMs:Date.now()-dbgStartedAt,textLen:text.length,textHead:text.slice(0,200),currentChallenge,currentContent,dbgNavStatus,challengeDetected,snapshot:dbgSnapshot},timestamp:Date.now()})}).catch(()=>{});
-      }
-    }
-    // #endregion
 
     /*
      * If a challenge is present, expected content
@@ -236,6 +249,8 @@ export async function waitForExpectedContent(
         challengeLogged = true;
       }
 
+      challengeShownLastPoll = true;
+
       await sleep(CONFIG.contentCheckIntervalMs);
 
       continue;
@@ -247,7 +262,15 @@ export async function waitForExpectedContent(
      * Only now can expected content be considered
      * a successful result.
      */
-    if (currentContent && (await isSettled())) {
+    if (challengeShownLastPoll) {
+      challengeShownLastPoll = false;
+
+      // Replaces, not extends: what is left of the challenge window is not
+      // waited out once the challenge is gone.
+      deadline = Date.now() + CONFIG.contentWaitTimeoutMs;
+    }
+
+    if (currentContent && (await isSettled(true))) {
       return { success: true, challenge: challengeDetected };
     }
 
@@ -258,10 +281,6 @@ export async function waitForExpectedContent(
    * Final check after timeout.
    */
   const finalText = await getPageText(page);
-
-  // #region agent log
-  fetch('http://127.0.0.1:7662/ingest/262fa771-ba2b-4567-970b-5ade7a07902d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c64b0c'},body:JSON.stringify({sessionId:'c64b0c',runId:'run2',hypothesisId:'H1,H4',location:'page-checks.ts:timeout',message:'wait ended by deadline',data:{elapsedMs:Date.now()-dbgStartedAt,finalHasChallengeText:containsChallenge(finalText),finalHasContent:containsExpectedContent(finalText, expectedContent),finalNavStatus:await getNavigationStatus(page),challengeDetectedFlag:challengeDetected,textHead:finalText.slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   /*
    * If challenge is still present, it is a
@@ -274,7 +293,7 @@ export async function waitForExpectedContent(
   return {
     success:
       containsExpectedContent(finalText, expectedContent) &&
-      (await isSettled()),
+      (await isSettled(false)),
     challenge: challengeDetected,
   };
 }

@@ -6,22 +6,12 @@ import type { Target } from "./types.js";
  */
 export const RU_TARGETS: readonly Target[] = [
   {
-    name: "Yandex",
-    url: "https://ya.ru/",
-    content: ["Яндекс"],
+    name: "Avito",
+    url: "https://www.avito.ru/",
+    content: ["Авито"],
     saveDiagnostics: true,
-  },
-  {
-    name: "Yandex Zen",
-    url: "https://dzen.ru/",
-    content: ["Дзен"],
-    saveDiagnostics: true,
-  },
-  {
-    name: "Yandex Market",
-    url: "https://market.yandex.ru/",
-    content: ["Яндекс Маркет"],
-    saveDiagnostics: true,
+    // Qrator antibot: 439 is its check page, 429 is its "problem with IP" page.
+    challengeStatuses: [439, 429],
   },
   {
     name: "Wildberries",
@@ -35,23 +25,37 @@ export const RU_TARGETS: readonly Target[] = [
     url: "https://www.ozon.ru/",
     content: ["Ozon"],
     saveDiagnostics: true,
+    // Antibot: a new profile gets a 403 check page that reloads itself into the site.
+    challengeStatuses: [403],
   },
   {
-    name: "Avito",
-    url: "https://www.avito.ru/",
-    content: ["Авито"],
+    name: "Yandex",
+    url: "https://ya.ru/",
+    content: ["Яндекс"],
     saveDiagnostics: true,
   },
   {
-    name: "HH",
-    url: "https://hh.ru/",
-    content: ["hh.ru"],
+    name: "Yandex Market",
+    url: "https://market.yandex.ru/",
+    content: ["Яндекс Маркет"],
+    saveDiagnostics: true,
+  },
+  {
+    name: "Yandex Zen",
+    url: "https://dzen.ru/",
+    content: ["Дзен"],
     saveDiagnostics: true,
   },
   {
     name: "Cian",
     url: "https://www.cian.ru/",
     content: ["ЦИАН"],
+    saveDiagnostics: true,
+  },
+  {
+    name: "HH",
+    url: "https://hh.ru/",
+    content: ["hh.ru"],
     saveDiagnostics: true,
   },
   {

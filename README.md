@@ -24,7 +24,7 @@ Before the test starts, the program checks the external IP address through `api.
 
 By default, each attempt is performed in a new browser context.
 
-With `--reuse-context`, a single browser context is used for all attempts for the same website.
+With `--reuse-context`, a single browser context is used for all attempts for the same website. With `--browser=chrome`, every attempt is still a restarted Chrome, but on the same profile, so its storage is kept.
 
 ## Installation
 
@@ -166,9 +166,10 @@ $env:CHROME_PATH = "C:\path\to\chrome.exe"; npm run parser -- --browser=chrome
 
 In this mode the program starts a real Chrome window and controls it over the DevTools protocol. Your own Chrome profile, cookies and open windows are never used or closed:
 
-* every browser context is a separate Chrome process with a **new temporary profile** (a `parser-benchmark-chrome-*` directory in the system temporary folder);
-* by default (a new context per attempt) Chrome is started, the website is opened in its first (and only) tab, the result is checked, and then the whole Chrome is closed and its profile is deleted;
-* with `--reuse-context`, one Chrome is used for all attempts for the same website and is closed after the website is tested;
+* every browser context has its own **new temporary profile** (a `parser-benchmark-chrome-*` directory in the system temporary folder);
+* every attempt starts a new Chrome process on the profile of its context, opens the website in its first (and only) tab, checks the result, and then quits the whole Chrome;
+* by default (a new context per attempt) the profile is deleted together with Chrome, so the website sees a new visitor every time;
+* with `--reuse-context`, the profile is kept for all attempts for the same website, so every attempt is a restarted Chrome that still has the cookies and storage of the previous attempt (for example a passed captcha). The profile is deleted after the website is tested;
 * Chrome uses the language, time zone and screen settings of your computer. They are not emulated.
 
 ### `--targets`
@@ -332,6 +333,8 @@ are you a robot
 подозрительная активность
 
 подозрительную активность
+
+доступ ограничен
 ```
 
 A detected CAPTCHA does not immediately terminate the attempt.
@@ -349,6 +352,8 @@ Content: OK
 ```
 
 `AUTO` (yellow) means that a challenge appeared and was passed automatically. The challenge is still included in the statistics.
+
+`MANUAL` (cyan) means that a challenge appeared and a person passed it, for example by solving a captcha. The program recognises it by the person's input (mouse, touch or keyboard events that scripts of a page cannot fake) in the page during the attempt. It is available with `--browser=chrome` only, and an attempt with a challenge but without such input stays `AUTO`.
 
 If the challenge remains after 30 seconds:
 
@@ -378,7 +383,9 @@ The same diagnostics are saved for every `ru` website, for example `wildberries-
 
 Wildberries first answers with HTTP status `498` and a stub page ("Проверяем браузер", then "Подозрительная активность" if the check fails). If the browser passes the check, the page reloads with the real website.
 
-Such a status is declared per website. At the moment only Wildberries declares one (`498`). The other `ru` websites have no special handling: if one of them shows a captcha or an antibot page, the attempt is reported as `Challenge: YES` (or `FAIL` for a non-`2xx`/`3xx` status) and the diagnostics are saved, so the stub can be analysed and its handling added.
+Avito (Qrator antibot) answers with `439` for its check page and `429` for its "Доступ ограничен: проблема с IP" page. The check page usually passes by itself within a second and the real website loads. After that, or instead of it, Avito may ask for a captcha that has to be solved by hand, either as a separate page or as a dialog on top of the already visible website. The dialog appears several seconds after the content, so for such targets content is accepted at once only when the page has fully loaded (`document.readyState` is `complete`) and no challenge text is present. A page that never reports `complete` (Avito through a proxy) is observed until the end of the window instead, and is accepted if the challenge text did not show up.
+
+Such a status is declared per website. At the moment Wildberries (`498`) and Avito (`439`, `429`) declare one. The other `ru` websites have no special handling: if one of them shows a captcha or an antibot page, the attempt is reported as `Challenge: YES` (or `FAIL` for a non-`2xx`/`3xx` status) and the diagnostics are saved, so the stub can be analysed and its handling added.
 
 For targets that declare such a status, the response is treated as a delivered request:
 
@@ -386,9 +393,11 @@ For targets that declare such a status, the response is treated as a delivered r
 Request: OK | Challenge: AUTO | Content: OK | HTTP status: 200
 ```
 
-The program then waits up to 30 seconds for the stub to be replaced with the real content. Content is accepted only when the page itself reports a status other than `498`, so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
+The program then waits up to 30 seconds for the stub to be replaced with the real content. When the challenge disappears, the page gets a fresh window to load, so the time a person needed to solve a captcha is not taken from it. Content is accepted only when the page itself reports a status other than `498`, so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
 
-If the stub does not go away, the attempt is reported as `Challenge: YES | Content: FAIL` and keeps the `498` status (shown in yellow, because the request itself was delivered).
+If the stub does not go away, the attempt is reported as `Challenge: YES | Content: FAIL` and keeps the original status, for example `498` or `439` (shown in yellow, because the request itself was delivered).
+
+The program does not solve captchas. A captcha that needs manual solving is a measurement result: the connection and the browser profile are treated by the website as suspicious. Without `--reuse-context` every attempt uses a new temporary profile, so the website sees a new visitor each time. With `--reuse-context` and `--browser=chrome` you can solve the captcha by hand once: Chrome is restarted for the next attempt on the same profile, and the stored pass can stop the captcha from appearing again. Whether it does depends on the website (a pass kept only until the browser closes is lost on restart). Solving the captcha in your own Chrome profile does not help the benchmark.
 
 ## Statistics
 
@@ -430,7 +439,10 @@ If a challenge is detected during an attempt, the time spent waiting for it is i
 ## Limitations
 
 * With `--browser=chrome`, stopping the program with `Ctrl+C` does not delete the temporary Chrome profile, and the Chrome window it started may stay open. Close the window if needed and remove the leftover `parser-benchmark-chrome-*` directories from the system temporary folder manually.
-* Only Wildberries has a dedicated challenge status (`498`). Captchas of the other `ru` websites are only detected by the generic indicators listed above.
+* Only Wildberries (`498`) and Avito (`439`, `429`) have dedicated challenge statuses. Captchas of the other `ru` websites are only detected by the generic indicators listed above.
+* In our test runs from one direct connection Avito showed a captcha that has to be solved by hand in every attempt with a new profile. Other connections may behave differently. An unsolved captcha is reported as `Challenge: YES`; a captcha solved by hand is reported as `Challenge: MANUAL`.
+* `Challenge: MANUAL` is available with `--browser=chrome` only. With Chromium launched by Playwright a challenge passed by a person is reported as `AUTO`.
+* A Chrome that has to be killed instead of quitting normally may lose the cookies it had not written to the profile yet.
 * The expected content of the `ru` websites is a simple text match on the page title or body. If a website changes its wording, update `src/targets/ru.ts`.
 
 ## Saving Results

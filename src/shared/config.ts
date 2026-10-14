@@ -35,4 +35,6 @@ export const CHALLENGE_PATTERNS = [
   "проверяем браузер",
   "подозрительная активность",
   "подозрительную активность",
+  // Avito antibot (HTTP 439/429), both its stub page and its modal dialog.
+  "доступ ограничен",
 ] as const;

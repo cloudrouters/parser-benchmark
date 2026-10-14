@@ -6,6 +6,8 @@ export interface AttemptResult {
   requestSuccess: boolean;
   contentSuccess: boolean;
   challenge: boolean;
+  /** The challenge was passed with the help of a person, not automatically. */
+  manualChallenge: boolean;
   responseTime: number;
   finalUrl: string | null;
   title: string | null;

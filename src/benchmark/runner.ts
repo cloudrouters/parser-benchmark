@@ -146,7 +146,18 @@ export async function runAttempt(
   const activeContext =
     context ?? (await browser.newContext(getContextOptions(localPort)));
 
-  const page = await activeContext.newPage();
+  let page: PageLike;
+
+  try {
+    page = await activeContext.newPage();
+  } catch (error) {
+    // A context opened for this attempt must not outlive the failed attempt.
+    if (ownsContext) {
+      await activeContext.close().catch(ignoreCleanupError);
+    }
+
+    throw error;
+  }
 
   const startedAt = Date.now();
 
@@ -199,10 +210,6 @@ export async function runAttempt(
       contentSuccess = contentResult.success;
 
       challenge = contentResult.challenge;
-
-      // #region agent log
-      fetch('http://127.0.0.1:7662/ingest/262fa771-ba2b-4567-970b-5ade7a07902d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c64b0c'},body:JSON.stringify({sessionId:'c64b0c',runId:'run2',hypothesisId:'H1,H2,H3',location:'runner.ts:attemptResult',message:'attempt outcome',data:{attempt,initialStatus:navigation.status,challengeStatus,contentSuccess,challenge,url:page.url()},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     } else if (!navigation.stuck) {
       challenge = containsChallenge(await getPageText(page));
     }
@@ -235,6 +242,12 @@ export async function runAttempt(
       requestSuccess,
       contentSuccess,
       challenge,
+      /*
+       * Input during an attempt that met a challenge is taken as the person
+       * solving it. A challenge that stayed unresolved is not a pass.
+       */
+      manualChallenge:
+        challenge && contentSuccess && page.hadUserInput?.() === true,
       responseTime,
       finalUrl,
       title,

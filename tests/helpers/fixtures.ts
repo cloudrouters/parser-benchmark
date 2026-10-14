@@ -23,6 +23,7 @@ export function createAttemptResult(
     requestSuccess: true,
     contentSuccess: true,
     challenge: false,
+    manualChallenge: false,
     responseTime: 100,
     finalUrl: "https://example.com/",
     title: "Example",

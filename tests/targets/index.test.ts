@@ -92,17 +92,22 @@ describe("resolveTargetSet", () => {
     );
   });
 
-  it("keeps the 498 challenge status only for Wildberries", () => {
-    const withChallengeStatuses = resolveTargetSet("ru")
-      .targets.filter((target) => target.challengeStatuses !== undefined)
-      .map(({ name: targetName, challengeStatuses }) => ({
-        name: targetName,
-        challengeStatuses,
-      }));
+  it("declares challenge statuses only for Ozon (403), Wildberries (498) and Avito (439, 429)", () => {
+    const withChallengeStatuses = Object.fromEntries(
+      resolveTargetSet("ru")
+        .targets.filter((target) => target.challengeStatuses !== undefined)
+        .map(({ name: targetName, challengeStatuses }) => [
+          targetName,
+          challengeStatuses,
+        ])
+    );
 
-    expect(withChallengeStatuses).toEqual([
-      { name: "Wildberries", challengeStatuses: [498] },
-    ]);
+    expect(withChallengeStatuses).toEqual({
+      // Ozon's antibot serves its self-reloading check page with HTTP 403.
+      Ozon: [403],
+      Wildberries: [498],
+      Avito: [439, 429],
+    });
   });
 
   it("requests challenge diagnostics only for eBay", () => {

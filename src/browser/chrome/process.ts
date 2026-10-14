@@ -27,8 +27,16 @@ export interface ChromeProcess {
   waitForExit(timeoutMs: number): Promise<boolean>;
   /** Kills Chrome together with its child processes. */
   forceKill(): Promise<void>;
-  /** Deletes the temporary profile directory. Chrome must have exited. */
-  removeProfile(): Promise<void>;
+}
+
+/**
+ * A Chrome user data directory that outlives the processes started on it, so
+ * cookies and other storage survive a restart of Chrome.
+ */
+export interface ChromeProfile {
+  readonly directory: string;
+  /** Deletes the directory. No Chrome may be running on it. */
+  remove(): Promise<void>;
 }
 
 /** The part of a Node child process that is needed to supervise Chrome. */
@@ -47,6 +55,8 @@ export interface ChromeProcessDeps {
 
 export interface StartChromeOptions {
   proxyServer: string | null;
+  /** Profile directory of the new process; it is left untouched on exit. */
+  userDataDir: string;
   startTimeoutMs?: number | undefined;
 }
 
@@ -219,17 +229,34 @@ async function waitForDevToolsPort(
 }
 
 /**
- * Starts Google Chrome as an ordinary, separate process with a brand new
- * temporary profile. The profile is never shared with the user's Chrome,
- * so every launch starts without cookies, cache or antibot history.
+ * Creates an empty profile directory in the system temporary folder. It is
+ * never the profile of the user's Chrome, so a new profile starts without
+ * cookies, cache or antibot history.
+ */
+export async function createChromeProfile(): Promise<ChromeProfile> {
+  const directory = await mkdtemp(join(tmpdir(), "parser-benchmark-chrome-"));
+
+  return { directory, remove: () => removeDirectory(directory) };
+}
+
+/**
+ * Starts Google Chrome as an ordinary, separate process on the given profile.
+ * The same profile can be started again after Chrome exited, and then it
+ * keeps its storage. The caller owns the profile and removes it.
  */
 export async function startChromeProcess(
   options: StartChromeOptions,
   deps: ChromeProcessDeps = DEFAULT_DEPS
 ): Promise<ChromeProcess> {
+  const { userDataDir } = options;
+
   const executable = deps.locateExecutable();
 
-  const userDataDir = await mkdtemp(join(tmpdir(), "parser-benchmark-chrome-"));
+  /*
+   * A Chrome that was killed leaves its DevToolsActivePort behind. Without
+   * removing it the start would connect to the port of the dead process.
+   */
+  await rm(join(userDataDir, "DevToolsActivePort"), { force: true });
 
   const child = deps.spawn(
     executable,
@@ -276,18 +303,10 @@ export async function startChromeProcess(
       },
 
       forceKill,
-
-      removeProfile: () => removeDirectory(userDataDir),
     };
   } catch (error) {
     await forceKill().catch((killError: unknown) => {
       console.warn(`Could not stop Chrome: ${getErrorMessage(killError)}`);
-    });
-
-    await removeDirectory(userDataDir).catch((removeError: unknown) => {
-      console.warn(
-        `Could not remove the temporary Chrome profile: ${getErrorMessage(removeError)}`
-      );
     });
 
     throw error;

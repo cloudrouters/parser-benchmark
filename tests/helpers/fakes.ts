@@ -17,6 +17,13 @@ export interface FakePageOptions {
   body?: () => Promise<string>;
   /** Status of the navigation entry that the page itself reports (default 200). */
   navigationStatus?: () => number | null;
+  /** `document.readyState` of the page (default "complete"). */
+  readyState?: () => string;
+  /**
+   * Whether a person interacted with the page. Without it the page is one
+   * that cannot tell, like the page of a browser launched by Playwright.
+   */
+  userInput?: () => boolean;
   goto?: PageLike["goto"];
   screenshot?: PageLike["screenshot"];
   close?: PageLike["close"];
@@ -35,10 +42,17 @@ export function createFakePage(options: FakePageOptions = {}): FakePage {
     url: options.url ?? (() => "https://example.com/"),
     title: options.title ?? (() => Promise.resolve("Example")),
     locator: () => ({ innerText: body }),
-    evaluate: () =>
-      Promise.resolve(
+    evaluate: (expression) => {
+      if (expression.includes("readyState")) {
+        return Promise.resolve(
+          options.readyState === undefined ? "complete" : options.readyState()
+        );
+      }
+
+      return Promise.resolve(
         options.navigationStatus === undefined ? 200 : options.navigationStatus()
-      ),
+      );
+    },
     goto: vi.fn<PageLike["goto"]>(
       options.goto ?? (() => Promise.resolve(createResponse(200)))
     ),
@@ -48,6 +62,9 @@ export function createFakePage(options: FakePageOptions = {}): FakePage {
     close: vi.fn<PageLike["close"]>(
       options.close ?? (() => Promise.resolve())
     ),
+    ...(options.userInput === undefined
+      ? {}
+      : { hadUserInput: options.userInput }),
   };
 }
 

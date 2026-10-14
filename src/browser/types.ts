@@ -64,6 +64,13 @@ export interface PageLike extends PageReader {
   ): Promise<ResponseLike | null>;
   screenshot(options: { path: string; fullPage: boolean }): Promise<unknown>;
   close(): Promise<void>;
+  /**
+   * Whether a person interacted with the page (trusted pointer, touch or
+   * keyboard input), for example to solve a captcha. Optional because only
+   * some browsers can tell: a page that cannot is never reported as solved
+   * by a person.
+   */
+  hadUserInput?(): boolean;
 }
 
 export interface ContextLike {

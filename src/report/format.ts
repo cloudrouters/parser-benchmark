@@ -7,7 +7,7 @@ import type {
   ResponseStats,
   TargetResult,
 } from "../results/types.js";
-import { boldWhite, green, red, yellow } from "../shared/ansi.js";
+import { boldWhite, cyan, green, red, yellow } from "../shared/ansi.js";
 import { CONFIG } from "../shared/config.js";
 
 export interface BenchmarkOutput {
@@ -68,15 +68,20 @@ export function renderTable(
 }
 
 /**
- * A challenge that resolved by itself is reported as AUTO so that it is not
- * mistaken for a challenge that blocked the attempt.
+ * A challenge that was passed is reported as AUTO (by itself) or MANUAL (with
+ * the help of a person) so that it is not mistaken for a challenge that
+ * blocked the attempt.
  */
 function formatChallenge(result: AttemptResult): string {
   if (!result.challenge) {
     return green("No");
   }
 
-  return result.contentSuccess ? yellow("AUTO") : red("YES");
+  if (!result.contentSuccess) {
+    return red("YES");
+  }
+
+  return result.manualChallenge ? cyan("MANUAL") : yellow("AUTO");
 }
 
 function formatStatus(result: AttemptResult): string {

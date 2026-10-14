@@ -9,6 +9,8 @@ alwaysApply: true
 
 - For new functionality, behavior changes, and bug fixes, follow the Red-Green-Refactor cycle.
 - Before implementing a behavior change, identify the expected behavior and acceptance criteria, then write or update tests that verify them.
+- After writing tests for new functionality, create a git commit that contains those tests, so they are frozen in history before implementation begins. This TDD freeze-commit is required and does not need a separate request.
+- After that commit, do not rewrite those tests to fit the new implementation. If changing them is truly required, first explain why in chat and obtain explicit approval before editing.
 - Base tests on the requirements and expected behavior, not on assumptions about how the implementation will work.
 - Run the new or updated tests before changing production code. Confirm that they fail for the intended reason, such as missing functionality or a reproducible bug.
 - After confirming the expected failure, implement the smallest complete solution that satisfies the requirements and makes the tests pass.
