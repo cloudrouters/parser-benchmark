@@ -291,7 +291,7 @@ If it is not found:
 Content: FAIL
 ```
 
-The content check runs for up to 5 seconds.
+The content check polls every 250 ms. After a captcha it waits until the real page is painted (not a loading stub that already mentions the site name), keeps that page on screen for about a second, then closes the tab. If the page is still a loading shell without that text (VK's empty «VK | Welcome!» title or «загружается...»), the wait is extended up to 30 seconds until the real page replaces it. Drom's Qrator stub can freeze on a white tab: if it is still unresponsive after 5 seconds, the same tab is reloaded.
 
 ## Challenge
 
@@ -353,7 +353,7 @@ Content: OK
 
 `AUTO` (yellow) means that a challenge appeared and was passed automatically. The challenge is still included in the statistics.
 
-`MANUAL` (cyan) means that a challenge appeared and a person passed it, for example by solving a captcha. The program recognises it by the person's input (mouse, touch or keyboard events that scripts of a page cannot fake) in the page during the attempt. It is available with `--browser=chrome` only, and an attempt with a challenge but without such input stays `AUTO`.
+`MANUAL` (cyan) means that a challenge appeared and a person passed it, for example by solving a captcha. The program recognises a trusted key press, a click on a control (Avito's «Продолжить», a checkbox), or a click inside a captcha iframe. A click that only brings the Chrome window to the front is not enough: such an attempt stays `AUTO`. If the person solved a captcha and the site then ran an automatic check, the attempt is still `MANUAL`. It is available with `--browser=chrome` only.
 
 If the challenge remains after 30 seconds:
 
@@ -395,7 +395,7 @@ For targets that declare such a status, the response is treated as a delivered r
 Request: OK | Challenge: AUTO | Content: OK | HTTP status: 200
 ```
 
-The program then waits up to 30 seconds for the stub to be replaced with the real content. When the challenge disappears, the page gets a fresh window to load, so the time a person needed to solve a captcha is not taken from it. Content is accepted only when the page itself reports a status other than the declared ones (for example `498`), so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
+The program then waits up to 30 seconds for the stub to be replaced with the real content. When the challenge disappears, the page gets 60 seconds to load, because a site such as Wildberries can stay empty for tens of seconds after its check. As soon as the expected content is on the page, the attempt finishes: there is no extra wait. The time a person needed to solve a captcha is not taken from that window. Content is accepted only when the page itself reports a status other than the declared ones (for example `498`), so the stub can never be counted as content. When the content arrives, the report shows the status of the page that delivered it (for example `200`) instead of the original `498`.
 
 If the stub does not go away, the attempt is reported as `Challenge: YES | Content: FAIL` and keeps the original status, for example `498` or `439` (shown in yellow, because the request itself was delivered).
 

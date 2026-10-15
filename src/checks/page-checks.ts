@@ -29,7 +29,8 @@ export function isRealHttpUrl(url: string): boolean {
 }
 
 /**
- * Expects text that is already lower-cased, as returned by `getPageText`.
+ * Expects already lower-cased visible text (title and body), not markup.
+ * Script URLs such as SmartCaptcha on a loaded Dzen page must not count.
  */
 export function containsChallenge(text: string): boolean {
   return CHALLENGE_PATTERNS.some((pattern) => text.includes(pattern));
@@ -42,6 +43,48 @@ export function containsExpectedContent(
   return expectedContent.some((content) =>
     text.includes(content.toLowerCase())
   );
+}
+
+export function containsLoadingContent(
+  text: string,
+  loadingContent: readonly string[] | undefined
+): boolean {
+  return (
+    loadingContent?.some((pattern) => text.includes(pattern.toLowerCase())) ===
+    true
+  );
+}
+
+/**
+ * A target with `loadingContent` is still a shell while the body is empty
+ * (VK paints "VK | Welcome!" before any body text) or while a placeholder
+ * such as "загружается" is visible.
+ */
+export function isStillLoading(
+  body: string,
+  visible: string,
+  loadingContent: readonly string[] | undefined
+): boolean {
+  if (loadingContent === undefined) {
+    return false;
+  }
+
+  return body.trim() === "" || containsLoadingContent(visible, loadingContent);
+}
+
+/**
+ * The document has something on screen: it left `loading`, or the body is
+ * already a real page even if `readyState` is stuck on `loading` (Avito).
+ */
+export function isDocumentPainted(
+  readyState: string | null,
+  body: string
+): boolean {
+  if (readyState === "interactive" || readyState === "complete") {
+    return true;
+  }
+
+  return body.trim().length >= CONFIG.minPaintedBodyLength;
 }
 
 function readPageUrl(page: PageReader): string | null {
@@ -93,27 +136,51 @@ export async function getReadyState(page: PageReader): Promise<string | null> {
 /**
  * The page's own address is not page content: a loading page titled
  * "loading https://www.example.com/" must not satisfy a check for "example".
+ * Markup is included because a site such as Wildberries paints its header
+ * (logo alt text, class names) before any visible body text exists.
  */
 export async function getPageText(page: PageReader): Promise<string> {
-  const text = await readRawPageText(page);
+  const snapshot = await readPageSnapshot(page);
 
-  const url = readPageUrl(page);
-
-  return url === null || url === ""
-    ? text
-    : text.replaceAll(url.toLowerCase(), "");
+  return snapshot.combined;
 }
 
-async function readRawPageText(page: PageReader): Promise<string> {
-  const [title, body] = await Promise.all([
+export async function getVisiblePageText(page: PageReader): Promise<string> {
+  const snapshot = await readPageSnapshot(page);
+
+  return snapshot.visible;
+}
+
+const PAGE_HTML_EXPRESSION = "document.documentElement ? document.documentElement.innerHTML : \"\"";
+
+interface PageSnapshot {
+  body: string;
+  visible: string;
+  combined: string;
+}
+
+async function readPageSnapshot(page: PageReader): Promise<PageSnapshot> {
+  const [title, body, html] = await Promise.all([
     page.title().catch(() => ""),
     page
       .locator("body")
       .innerText({ timeout: CONFIG.contentWaitTimeoutMs })
       .catch(() => ""),
+    page.evaluate(PAGE_HTML_EXPRESSION).catch(() => ""),
   ]);
 
-  return `${title}\n${body}`.toLowerCase();
+  const url = readPageUrl(page);
+  const stripUrl = (value: string): string =>
+    url === null || url === "" ? value : value.replaceAll(url.toLowerCase(), "");
+  const bodyText = stripUrl(body.toLowerCase());
+  const visible = stripUrl(`${title}\n${body}`.toLowerCase());
+  const markup = (typeof html === "string" ? html : "").toLowerCase();
+
+  return {
+    body: bodyText,
+    visible,
+    combined: stripUrl(`${visible}\n${markup}`),
+  };
 }
 
 function hasRealHttpUrl(page: PageReader): boolean | null {
@@ -167,11 +234,23 @@ export interface WaitForContentOptions {
    * given, content only counts once the page itself reports a status that is
    * not one of them, that is, once the challenge page has been replaced.
    * Antibots such as Avito's show their captcha dialog on top of the already
-   * visible content while the page is still loading, so content is accepted
-   * early only when the page also finished loading. Otherwise the whole
-   * window is observed first, because a page may never report `complete`.
+   * visible content while the page is still loading, so a page that never
+   * reports `complete` (Wildberries, Avito through a proxy) is accepted as
+   * soon as the expected content is in the body and the status is no longer a
+   * challenge status. The wait does not sit out `readyState` or a late dialog.
    */
   challengeStatuses?: readonly number[];
+  /**
+   * Visible placeholders that mean the page is still a loading shell.
+   * Content that matches the target is ignored until they disappear.
+   */
+  loadingContent?: readonly string[];
+  /**
+   * Reload the tab if it is still a white/loading document after this
+   * many milliseconds (Drom). Playwright's `domcontentloaded` wait is not
+   * used for that reload: a short timeout is enough, then polling continues.
+   */
+  stuckReloadMs?: number;
 }
 
 export async function waitForExpectedContent(
@@ -181,6 +260,10 @@ export async function waitForExpectedContent(
 ): Promise<ContentCheckResult> {
   let deadline = Date.now() + CONFIG.contentWaitTimeoutMs;
 
+  const waitStartedAt = Date.now();
+
+  let didStuckReload = false;
+
   let challengeDetected = false;
 
   let challengeLogged = false;
@@ -189,8 +272,15 @@ export async function waitForExpectedContent(
    * `requireLoaded` is dropped for the final check at the end of the window.
    * Some pages (Avito through a proxy) never reach `readyState: complete`
    * while being fully usable, so waiting for it forever would fail them.
+   * Expected content in the body is accepted without waiting for `complete`.
    */
   const isSettled = async (requireLoaded: boolean): Promise<boolean> => {
+    const ready = await getReadyState(page);
+
+    if (ready === "loading") {
+      return false;
+    }
+
     if (options.challengeStatuses === undefined) {
       return true;
     }
@@ -201,15 +291,21 @@ export async function waitForExpectedContent(
       return false;
     }
 
-    return !requireLoaded || (await getReadyState(page)) === "complete";
+    return !requireLoaded || ready === "complete";
   };
 
   /*
    * True while the previous poll saw a challenge. When it disappears, the
-   * page gets a fresh window to load instead of the rest of the challenge
+   * page gets a long window to load instead of the rest of the challenge
    * window, which includes the time a person needed to solve the captcha.
+   * Content is accepted once the real page has stayed painted for a
+   * few polls, so the tab is not closed on the captcha-to-site frame.
    */
   let challengeShownLastPoll = false;
+
+  let paintedPollsAfterChallenge = 0;
+
+  let loadingLogged = false;
 
   if (options.challengeDetected === true) {
     challengeDetected = true;
@@ -222,11 +318,18 @@ export async function waitForExpectedContent(
   }
 
   while (Date.now() < deadline) {
-    const text = await getPageText(page);
+    const snapshot = await readPageSnapshot(page);
+    const text = snapshot.combined;
+    const visible = snapshot.visible;
 
-    const currentChallenge = containsChallenge(text);
+    const currentChallenge = containsChallenge(visible);
 
     const currentContent = containsExpectedContent(text, expectedContent);
+
+    const ready = await getReadyState(page);
+    const currentLoading =
+      ready === "loading" ||
+      isStillLoading(snapshot.body, visible, options.loadingContent);
 
     /*
      * If a challenge is present, expected content
@@ -256,21 +359,90 @@ export async function waitForExpectedContent(
       continue;
     }
 
-    /*
-     * Challenge disappeared.
-     *
-     * Only now can expected content be considered
-     * a successful result.
-     */
     if (challengeShownLastPoll) {
       challengeShownLastPoll = false;
-
-      // Replaces, not extends: what is left of the challenge window is not
-      // waited out once the challenge is gone.
-      deadline = Date.now() + CONFIG.contentWaitTimeoutMs;
+      paintedPollsAfterChallenge = 0;
+      deadline = Date.now() + CONFIG.postChallengeContentWaitTimeoutMs;
     }
 
-    if (currentContent && (await isSettled(true))) {
+    const contentInBody = containsExpectedContent(
+      snapshot.body,
+      expectedContent
+    );
+
+    if (
+      contentInBody &&
+      !isStillLoading(snapshot.body, visible, options.loadingContent) &&
+      isDocumentPainted(ready, snapshot.body)
+    ) {
+      const status =
+        options.challengeStatuses === undefined
+          ? undefined
+          : await getNavigationStatus(page);
+
+      if (
+        status === undefined ||
+        (status !== null &&
+          !isChallengeStatus(status, options.challengeStatuses))
+      ) {
+        if (challengeDetected) {
+          paintedPollsAfterChallenge += 1;
+
+          if (
+            paintedPollsAfterChallenge < CONFIG.postChallengePaintedPolls
+          ) {
+            await sleep(CONFIG.contentCheckIntervalMs);
+
+            continue;
+          }
+        }
+
+        return { success: true, challenge: challengeDetected };
+      }
+    }
+
+    if (currentLoading) {
+      if (
+        options.stuckReloadMs !== undefined &&
+        page.reload !== undefined &&
+        !didStuckReload
+      ) {
+        deadline =
+          waitStartedAt + options.stuckReloadMs + CONFIG.contentCheckIntervalMs;
+
+        if (Date.now() - waitStartedAt >= options.stuckReloadMs) {
+          didStuckReload = true;
+          try {
+            await page.reload({
+              waitUntil: "domcontentloaded",
+              timeout: options.stuckReloadMs,
+            });
+          } catch {
+            // The reload itself can sit on DCL; the next polls read the tab.
+          }
+
+          deadline = Date.now() + CONFIG.challengeWaitTimeoutMs;
+        }
+
+        await sleep(CONFIG.contentCheckIntervalMs);
+
+        continue;
+      }
+
+      if (!loadingLogged) {
+        deadline = Math.max(
+          deadline,
+          Date.now() + CONFIG.challengeWaitTimeoutMs
+        );
+        loadingLogged = true;
+      }
+
+      await sleep(CONFIG.contentCheckIntervalMs);
+
+      continue;
+    }
+
+    if (currentContent && (await isSettled(!challengeDetected))) {
       return { success: true, challenge: challengeDetected };
     }
 
@@ -278,16 +450,83 @@ export async function waitForExpectedContent(
   }
 
   /*
-   * Final check after timeout.
+   * Final check after timeout. A challenge that is still showing is given
+   * one reload of the same tab and a second challenge window. Wildberries
+   * can stay on its stub until the page is refreshed.
    */
-  const finalText = await getPageText(page);
+  const finalSnapshot = await readPageSnapshot(page);
+  const finalText = finalSnapshot.combined;
+  const finalVisible = finalSnapshot.visible;
+
+  const finalReady = await getReadyState(page);
+  const stuckLoading = finalReady === "loading";
+  const stuckChallenge = containsChallenge(finalVisible);
+
+  if ((stuckChallenge || stuckLoading) && page.reload !== undefined) {
+    if (stuckChallenge) {
+      console.log("Challenge still present. Reloading the tab...");
+    }
+
+    try {
+      await page.reload({
+        waitUntil: "domcontentloaded",
+        timeout: CONFIG.pageTimeoutMs,
+      });
+    } catch {
+      // A failed reload still gets a second challenge window.
+    }
+
+    deadline = Date.now() + CONFIG.challengeWaitTimeoutMs;
+    challengeShownLastPoll = stuckChallenge;
+    const reloadedChallenge = stuckChallenge || challengeDetected;
+
+    while (Date.now() < deadline) {
+      const snapshot = await readPageSnapshot(page);
+      const text = snapshot.combined;
+      const currentChallenge = containsChallenge(snapshot.visible);
+      const currentContent = containsExpectedContent(text, expectedContent);
+
+      if (currentChallenge || (await getReadyState(page)) === "loading") {
+        await sleep(CONFIG.contentCheckIntervalMs);
+        continue;
+      }
+
+      if (challengeShownLastPoll) {
+        challengeShownLastPoll = false;
+        deadline = Date.now() + CONFIG.postChallengeContentWaitTimeoutMs;
+      }
+
+      if (currentContent && (await isSettled(!challengeDetected))) {
+        return { success: true, challenge: reloadedChallenge };
+      }
+
+      await sleep(CONFIG.contentCheckIntervalMs);
+    }
+
+    const afterReload = await readPageSnapshot(page);
+
+    if (containsChallenge(afterReload.visible)) {
+      return { success: false, challenge: true };
+    }
+
+    return {
+      success:
+        containsExpectedContent(afterReload.combined, expectedContent) &&
+        (await isSettled(false)),
+      challenge: reloadedChallenge,
+    };
+  }
 
   /*
    * If challenge is still present, it is a
    * genuine unresolved challenge.
    */
-  if (containsChallenge(finalText)) {
+  if (containsChallenge(finalVisible)) {
     return { success: false, challenge: true };
+  }
+
+  if (isStillLoading(finalSnapshot.body, finalVisible, options.loadingContent)) {
+    return { success: false, challenge: challengeDetected };
   }
 
   return {

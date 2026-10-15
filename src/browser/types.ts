@@ -51,6 +51,14 @@ export interface PageReader {
   locator(selector: "body"): LocatorLike;
   /** Evaluates a JavaScript expression in the page and returns its value. */
   evaluate(expression: string): Promise<unknown>;
+  /**
+   * Reloads the current document. Optional because a page that cannot reload
+   * (for example a test double of a read-only snapshot) is left as it is.
+   */
+  reload?(options: {
+    waitUntil: "domcontentloaded";
+    timeout: number;
+  }): Promise<ResponseLike | null>;
 }
 
 export interface ResponseLike {
@@ -62,13 +70,24 @@ export interface PageLike extends PageReader {
     url: string,
     options: { waitUntil: "domcontentloaded"; timeout: number }
   ): Promise<ResponseLike | null>;
+  /**
+   * Reloads the current document. Used when a challenge page is still
+   * showing after the challenge window, so the site can try its check again
+   * without opening a new tab.
+   */
+  reload(options: {
+    waitUntil: "domcontentloaded";
+    timeout: number;
+  }): Promise<ResponseLike | null>;
   screenshot(options: { path: string; fullPage: boolean }): Promise<unknown>;
   close(): Promise<void>;
   /**
-   * Whether a person interacted with the page (trusted pointer, touch or
-   * keyboard input), for example to solve a captcha. Optional because only
-   * some browsers can tell: a page that cannot is never reported as solved
-   * by a person.
+   * Whether a person interacted with the page to solve a captcha: a trusted
+   * key press, a click on a control, or a click inside a captcha iframe.
+   * A click that only brings the window to the front does not count.
+   * If a person acted and the site then ran an automatic check, the attempt
+   * is still manual. Optional because only some browsers can tell: a page
+   * that cannot is never reported as solved by a person.
    */
   hadUserInput?(): boolean;
 }

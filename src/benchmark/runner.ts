@@ -3,8 +3,10 @@ import type { BrowserLike, ContextLike, PageLike } from "../browser/types.js";
 import {
   containsChallenge,
   getNavigationStatus,
-  getPageText,
+  getReadyState,
+  getVisiblePageText,
   isChallengeStatus,
+  isRealHttpUrl,
   isSuccessfulStatus,
   waitForExpectedContent,
   waitForRealNavigation,
@@ -32,51 +34,133 @@ interface NavigationOutcome {
   stuck: boolean;
 }
 
-async function navigate(page: PageLike, url: string): Promise<NavigationOutcome> {
-  let status: number | null = null;
-  let error: string | null = null;
-  let stuck = false;
-
+async function tryRecoverNavigation(page: PageLike): Promise<number | null> {
   try {
-    const response = await page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: CONFIG.pageTimeoutMs,
-    });
-
-    if (response !== null) {
-      status = response.status();
+    if (!isRealHttpUrl(page.url())) {
+      return null;
     }
-
-    /*
-     * Playwright can return a successful HTTP response
-     * while the browser itself is still sitting on
-     * about:blank / another about:* URL.
-     *
-     * In this case we wait up to 5 seconds for the
-     * actual HTTP/HTTPS navigation to appear.
-     */
-    if (isSuccessfulStatus(status)) {
-      const navigated = await waitForRealNavigation(page);
-
-      if (!navigated) {
-        stuck = true;
-
-        const seconds = String(CONFIG.navigationRecoveryTimeoutMs / 1000);
-
-        error =
-          `${NAVIGATION_STUCK_ERROR_PREFIX} "${page.url()}" ` +
-          `for ${seconds} seconds.`;
-
-        console.log(
-          `Navigation did not complete within ${seconds} seconds. Retrying...`
-        );
-      }
-    }
-  } catch (caughtError) {
-    error = getErrorMessage(caughtError);
+  } catch {
+    return null;
   }
 
-  return { status, error, stuck };
+  const ready = await getReadyState(page);
+
+  /*
+   * Drom (Qrator) often lands on a white document with readyState
+   * `loading` and never fires Playwright's `domcontentloaded`. Waiting
+   * for interactive here left the tab hung for the whole goto timeout.
+   */
+  if (
+    ready !== "loading" &&
+    ready !== "interactive" &&
+    ready !== "complete"
+  ) {
+    return null;
+  }
+
+  return getNavigationStatus(page);
+}
+
+async function finishSuccessfulNavigation(
+  page: PageLike,
+  status: number | null
+): Promise<NavigationOutcome> {
+  if (!isSuccessfulStatus(status)) {
+    return { status, error: null, stuck: false };
+  }
+
+  const navigated = await waitForRealNavigation(page);
+
+  if (navigated) {
+    return { status, error: null, stuck: false };
+  }
+
+  const seconds = String(CONFIG.navigationRecoveryTimeoutMs / 1000);
+
+  console.log(
+    `Navigation did not complete within ${seconds} seconds. Retrying...`
+  );
+
+  return {
+    status,
+    error:
+      `${NAVIGATION_STUCK_ERROR_PREFIX} "${page.url()}" ` +
+      `for ${seconds} seconds.`,
+    stuck: true,
+  };
+}
+
+async function navigate(page: PageLike, url: string): Promise<NavigationOutcome> {
+  const poll = {
+    aborted: false,
+    cancelSleep: (): void => undefined,
+  };
+
+  const gotoPromise = page
+    .goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: CONFIG.pageTimeoutMs,
+    })
+    .then((response) => ({ kind: "goto" as const, response }))
+    .catch((caughtError: unknown) => ({
+      kind: "error" as const,
+      error: caughtError,
+    }));
+
+  const pollPromise = (async () => {
+    const deadline = Date.now() + CONFIG.pageTimeoutMs;
+
+    while (Date.now() < deadline) {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, CONFIG.contentCheckIntervalMs);
+
+        poll.cancelSleep = (): void => {
+          clearTimeout(timer);
+          resolve();
+        };
+      });
+
+      if (poll.aborted) {
+        return { kind: "aborted" as const };
+      }
+
+      const recovered = await tryRecoverNavigation(page);
+
+      if (recovered !== null) {
+        return { kind: "recovered" as const, status: recovered };
+      }
+    }
+
+    return { kind: "aborted" as const };
+  })();
+
+  let first: Awaited<typeof gotoPromise> | Awaited<typeof pollPromise> =
+    await Promise.race([gotoPromise, pollPromise]);
+
+  poll.aborted = true;
+  poll.cancelSleep();
+
+  if (first.kind === "aborted") {
+    first = await gotoPromise;
+  }
+
+  if (first.kind === "recovered") {
+    return finishSuccessfulNavigation(page, first.status);
+  }
+
+  if (first.kind === "error") {
+    const recovered = await tryRecoverNavigation(page);
+
+    if (recovered !== null) {
+      return finishSuccessfulNavigation(page, recovered);
+    }
+
+    return { status: null, error: getErrorMessage(first.error), stuck: false };
+  }
+
+  const status = first.response === null ? null : first.response.status();
+
+  return finishSuccessfulNavigation(page, status);
 }
 
 export async function saveChallengeDiagnostics(
@@ -200,6 +284,12 @@ export async function runAttempt(
           ...(target.challengeStatuses === undefined
             ? {}
             : { challengeStatuses: target.challengeStatuses }),
+          ...(target.loadingContent === undefined
+            ? {}
+            : { loadingContent: target.loadingContent }),
+          ...(target.stuckReloadMs === undefined
+            ? {}
+            : { stuckReloadMs: target.stuckReloadMs }),
         }
       );
 
@@ -211,7 +301,7 @@ export async function runAttempt(
 
       challenge = contentResult.challenge;
     } else if (!navigation.stuck) {
-      challenge = containsChallenge(await getPageText(page));
+      challenge = containsChallenge(await getVisiblePageText(page));
     }
 
     const responseTime = Date.now() - startedAt;
@@ -244,7 +334,8 @@ export async function runAttempt(
       challenge,
       /*
        * Input during an attempt that met a challenge is taken as the person
-       * solving it. A challenge that stayed unresolved is not a pass.
+       * solving it, even if the site then ran an automatic check. A challenge
+       * that stayed unresolved is not a pass.
        */
       manualChallenge:
         challenge && contentSuccess && page.hadUserInput?.() === true,

@@ -13,7 +13,7 @@ import {
   waitForRealNavigation,
 } from "../../src/checks/page-checks.js";
 import { CONFIG } from "../../src/shared/config.js";
-import { createFakePage } from "../helpers/fakes.js";
+import { createFakePage, createResponse } from "../helpers/fakes.js";
 
 describe("isSuccessfulStatus", () => {
   it.each([
@@ -129,7 +129,7 @@ describe("getPageText", () => {
       body: () => Promise.resolve("Body TEXT"),
     });
 
-    await expect(getPageText(page)).resolves.toBe("my title\nbody text");
+    await expect(getPageText(page)).resolves.toBe("my title\nbody text\n");
   });
 
   it("falls back to the body when the title cannot be read", async () => {
@@ -138,7 +138,7 @@ describe("getPageText", () => {
       body: () => Promise.resolve("Body"),
     });
 
-    await expect(getPageText(page)).resolves.toBe("\nbody");
+    await expect(getPageText(page)).resolves.toBe("\nbody\n");
   });
 
   it("falls back to the title when the body cannot be read", async () => {
@@ -147,7 +147,36 @@ describe("getPageText", () => {
       body: () => Promise.reject(new Error("timeout")),
     });
 
-    await expect(getPageText(page)).resolves.toBe("title\n");
+    await expect(getPageText(page)).resolves.toBe("title\n\n");
+  });
+
+  it("includes markup that is not in the visible text", async () => {
+    const page = createFakePage({
+      title: () => Promise.resolve(""),
+      body: () => Promise.resolve(""),
+      html: () =>
+        Promise.resolve(
+          '<header><img alt="Wildberries" src="/logo.svg"></header>'
+        ),
+    });
+
+    await expect(getPageText(page)).resolves.toContain("wildberries");
+  });
+
+  it("still finds expected content in markup that is not in the visible text", async () => {
+    const page = createFakePage({
+      title: () => Promise.resolve("Дзен — главная"),
+      body: () => Promise.resolve("Новости и статьи"),
+      html: () =>
+        Promise.resolve(
+          '<script src="https://smartcaptcha.yandexcloud.net/captcha.js"></script>'
+        ),
+    });
+
+    const text = await getPageText(page);
+
+    expect(containsExpectedContent(text, ["Дзен"])).toBe(true);
+    expect(text).toContain("captcha");
   });
 
   it("returns text without content when nothing can be read", async () => {
@@ -170,7 +199,7 @@ describe("getPageText address handling", () => {
       body: () => Promise.resolve(""),
     });
 
-    await expect(getPageText(page)).resolves.toBe("loading \n");
+    await expect(getPageText(page)).resolves.toBe("loading \n\n");
   });
 
   it("keeps the text unchanged when the address cannot be read", async () => {
@@ -182,7 +211,7 @@ describe("getPageText address handling", () => {
       body: () => Promise.resolve("Body TEXT"),
     });
 
-    await expect(getPageText(page)).resolves.toBe("my title\nbody text");
+    await expect(getPageText(page)).resolves.toBe("my title\nbody text\n");
   });
 });
 
@@ -411,9 +440,13 @@ describe("waitForExpectedContent", () => {
 
     await result;
 
-    expect(console.log).toHaveBeenCalledTimes(1);
-    expect(console.log).toHaveBeenCalledWith(
+    expect(console.log).toHaveBeenNthCalledWith(
+      1,
       "Challenge detected. Waiting up to 30 seconds for automatic resolution..."
+    );
+    expect(console.log).toHaveBeenNthCalledWith(
+      2,
+      "Challenge still present. Reloading the tab..."
     );
   });
 
@@ -423,11 +456,16 @@ describe("waitForExpectedContent", () => {
         body: () => Promise.resolve("Welcome to Wildberries"),
       });
 
-      await expect(
-        waitForExpectedContent(page, ["Wildberries"], {
-          challengeDetected: true,
-        })
-      ).resolves.toEqual({ success: true, challenge: true });
+      const result = waitForExpectedContent(page, ["Wildberries"], {
+        challengeDetected: true,
+      });
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({
+        success: true,
+        challenge: true,
+      });
     });
 
     it("keeps waiting through blank pages for the challenge timeout instead of the content timeout", async () => {
@@ -478,9 +516,13 @@ describe("waitForExpectedContent", () => {
 
       await result;
 
-      expect(console.log).toHaveBeenCalledTimes(1);
-      expect(console.log).toHaveBeenCalledWith(
+      expect(console.log).toHaveBeenNthCalledWith(
+        1,
         "Challenge detected. Waiting up to 30 seconds for automatic resolution..."
+      );
+      expect(console.log).toHaveBeenNthCalledWith(
+        2,
+        "Challenge still present. Reloading the tab..."
       );
     });
   });
@@ -544,11 +586,23 @@ describe("waitForExpectedContent", () => {
       await expect(result).resolves.toEqual({ success: false, challenge: true });
     });
 
-    it("does not accept content before the page finished loading", async () => {
+    /*
+     * Observed: Wildberries can stay on its 498 "Проверяем браузер" stub
+     * for the whole 30 s window. Reloading the same tab gives the check
+     * another chance without opening a new profile.
+     */
+    it("reloads the tab once when the challenge is still showing after the challenge window", async () => {
       const startedAt = Date.now();
+      const reloadedAt = CONFIG.challengeWaitTimeoutMs;
+      const contentAt = reloadedAt + 2_000;
       const page = createFakePage({
-        body: () => Promise.resolve("Welcome to Wildberries"),
-        readyState: () => (Date.now() - startedAt < 3_000 ? "interactive" : "complete"),
+        body: () =>
+          Promise.resolve(
+            Date.now() - startedAt < contentAt
+              ? "...\nПроверяем браузер"
+              : "Интернет-магазин Wildberries"
+          ),
+        navigationStatus: () => (Date.now() - startedAt < contentAt ? 498 : 200),
       });
 
       const result = waitForExpectedContent(page, ["Wildberries"], options);
@@ -556,7 +610,44 @@ describe("waitForExpectedContent", () => {
       await vi.runAllTimersAsync();
 
       await expect(result).resolves.toEqual({ success: true, challenge: true });
-      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(3_000);
+      expect(page.reload).toHaveBeenCalledTimes(1);
+      expect(page.reload).toHaveBeenCalledWith({
+        waitUntil: "domcontentloaded",
+        timeout: CONFIG.pageTimeoutMs,
+      });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(contentAt);
+    });
+
+    it("does not reload again when the challenge is still showing after the second window", async () => {
+      const page = createFakePage({
+        body: () => Promise.resolve("...\nПроверяем браузер"),
+        navigationStatus: () => 498,
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+      expect(page.reload).toHaveBeenCalledTimes(1);
+      expect(Date.now()).toBeGreaterThanOrEqual(
+        CONFIG.challengeWaitTimeoutMs * 2
+      );
+    });
+
+    it("accepts content that is already on the page even while it is still loading", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        body: () => Promise.resolve("Welcome to Wildberries"),
+        readyState: () => "interactive",
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeLessThan(1_000);
     });
 
     /*
@@ -577,9 +668,7 @@ describe("waitForExpectedContent", () => {
       await vi.runAllTimersAsync();
 
       await expect(result).resolves.toEqual({ success: true, challenge: true });
-      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
-        CONFIG.challengeWaitTimeoutMs
-      );
+      expect(Date.now() - startedAt).toBeLessThan(1_000);
     });
 
     it("accepts delivered content at the end of the window when the load state is unknown", async () => {
@@ -600,28 +689,130 @@ describe("waitForExpectedContent", () => {
     });
   });
 
+  /*
+   * Regression (Wildberries, logged): after its 498 check the page reloaded
+   * with status 200 but stayed empty for about 27 s on a new profile; the
+   * expected word appeared only together with the page title. The 5 s window
+   * after the challenge reported Content: FAIL while the site was opening.
+   * The page also stays on `readyState: interactive` the whole time.
+   */
+  describe("when the content takes long to render after the challenge (Wildberries)", () => {
+    const options = { challengeDetected: true, challengeStatuses: [498] };
+    const CHECK_ENDS_AT_MS = 6_000;
+    const RENDERED_AT_MS = 33_000;
+
+    function createSlowWildberries(startedAt: number, renderedAtMs: number) {
+      const elapsed = (): number => Date.now() - startedAt;
+
+      return createFakePage({
+        title: () =>
+          Promise.resolve(
+            elapsed() >= renderedAtMs ? "Интернет-магазин Wildberries.ru" : ""
+          ),
+        body: () =>
+          Promise.resolve(
+            elapsed() < CHECK_ENDS_AT_MS ? "...\nПроверяем браузер" : ""
+          ),
+        navigationStatus: () => (elapsed() < CHECK_ENDS_AT_MS ? 498 : 200),
+        readyState: () => "interactive",
+      });
+    }
+
+    it("waits for the content for much longer than the usual window and then succeeds", async () => {
+      const startedAt = Date.now();
+      const page = createSlowWildberries(startedAt, RENDERED_AT_MS);
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(RENDERED_AT_MS);
+      expect(Date.now() - startedAt).toBeLessThan(RENDERED_AT_MS + 1_000);
+    });
+
+    it("does not wait for the end of the long window once the content has been observed", async () => {
+      const startedAt = Date.now();
+      const page = createSlowWildberries(startedAt, RENDERED_AT_MS);
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await result;
+
+      expect(Date.now() - startedAt).toBeLessThan(RENDERED_AT_MS + 1_000);
+    });
+
+    it("fails with challenge=true after the long window when the content never renders", async () => {
+      const startedAt = Date.now();
+      const page = createSlowWildberries(startedAt, Number.POSITIVE_INFINITY);
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: false, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+        CHECK_ENDS_AT_MS + CONFIG.postChallengeContentWaitTimeoutMs
+      );
+    });
+
+    it("uses a 60 second window after the challenge", () => {
+      expect(CONFIG.postChallengeContentWaitTimeoutMs).toBe(60_000);
+    });
+
+    it("accepts the page as soon as the header markup is there, even with an empty body", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        title: () => Promise.resolve(""),
+        body: () =>
+          Promise.resolve(
+            Date.now() - startedAt < CHECK_ENDS_AT_MS
+              ? "...\nПроверяем браузер"
+              : ""
+          ),
+        html: () =>
+          Promise.resolve(
+            Date.now() - startedAt < CHECK_ENDS_AT_MS
+              ? ""
+              : '<header><img alt="Wildberries"></header>'
+          ),
+        navigationStatus: () => (Date.now() - startedAt < CHECK_ENDS_AT_MS ? 498 : 200),
+        readyState: () => "interactive",
+      });
+
+      const result = waitForExpectedContent(page, ["Wildberries"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeLessThan(CHECK_ENDS_AT_MS + 1_000);
+    });
+  });
+
   describe("when the antibot shows its captcha after the content loaded (Avito)", () => {
     const options = { challengeDetected: true, challengeStatuses: [439, 429] };
     const CAPTCHA_DIALOG =
       "Авито — объявления. Доступ ограничен: проблема с IP. " +
       "Нажмите на кнопку Продолжить для решения капчи";
 
-    it("fails with challenge=true when a captcha dialog appears over the loaded page", async () => {
+    it("accepts the content as soon as it is on the page after a challenge, even if a captcha dialog would appear later", async () => {
       const startedAt = Date.now();
       const page = createFakePage({
         body: () =>
           Promise.resolve(
             Date.now() - startedAt < 4_000 ? "Объявления на сайте Авито" : CAPTCHA_DIALOG
           ),
-        // The dialog shows up while the page is still loading.
-        readyState: () => (Date.now() - startedAt < 8_000 ? "interactive" : "complete"),
+        readyState: () => "interactive",
       });
 
       const result = waitForExpectedContent(page, ["Авито"], options);
 
       await vi.runAllTimersAsync();
 
-      await expect(result).resolves.toEqual({ success: false, challenge: true });
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeLessThan(1_500);
     });
 
     it("fails with challenge=true when the antibot replaces the page with its captcha stub", async () => {
@@ -664,6 +855,55 @@ describe("waitForExpectedContent", () => {
       await expect(result).resolves.toEqual({ success: true, challenge: true });
     });
 
+    it("does not close Avito on a loading stub after the captcha", async () => {
+      const startedAt = Date.now();
+      const paintedAtMs = 2_000;
+      const page = createFakePage({
+        title: () => Promise.resolve("Авито — Объявления на сайте Авито"),
+        body: () =>
+          Promise.resolve(
+            Date.now() - startedAt < paintedAtMs
+              ? "быстрая подработка. карьера в авито"
+              : "Объявления на сайте Авито"
+          ),
+        navigationStatus: () => 200,
+        readyState: () =>
+          Date.now() - startedAt < paintedAtMs ? "loading" : "interactive",
+      });
+
+      const result = waitForExpectedContent(page, ["Авито"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(paintedAtMs);
+      expect(Date.now() - startedAt).toBeLessThan(paintedAtMs + 1_500);
+    });
+
+    it("accepts a painted Avito homepage that stays on readyState loading", async () => {
+      const startedAt = Date.now();
+      const homepage = `Объявления на сайте Авито\n${"раздел ".repeat(150)}`;
+      const page = createFakePage({
+        title: () => Promise.resolve("Авито — Объявления на сайте Авито"),
+        body: () => Promise.resolve(homepage),
+        navigationStatus: () => 200,
+        readyState: () => "loading",
+      });
+
+      const result = waitForExpectedContent(page, ["Авито"], options);
+
+      await vi.runAllTimersAsync();
+
+      await expect(result).resolves.toEqual({ success: true, challenge: true });
+      expect(homepage.trim().length).toBeGreaterThan(
+        CONFIG.minPaintedBodyLength
+      );
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+        (CONFIG.postChallengePaintedPolls - 1) * CONFIG.contentCheckIntervalMs
+      );
+      expect(Date.now() - startedAt).toBeLessThan(1_500);
+    });
+
     describe("without a challenge status on the first response", () => {
       const withoutChallengeStatus = { challengeStatuses: [439, 429] };
 
@@ -686,13 +926,10 @@ describe("waitForExpectedContent", () => {
           success: true,
           challenge: false,
         });
-        // The late captcha dialog must still have its chance to show up.
-        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
-          CONFIG.contentWaitTimeoutMs
-        );
+        expect(Date.now() - startedAt).toBeLessThan(1_000);
       });
 
-      it("still reports a captcha dialog that shows up while the load state stays interactive", async () => {
+      it("does not wait for a late captcha once the body already has its content", async () => {
         const startedAt = Date.now();
         const page = createFakePage({
           body: () =>
@@ -713,9 +950,10 @@ describe("waitForExpectedContent", () => {
         await vi.runAllTimersAsync();
 
         await expect(result).resolves.toEqual({
-          success: false,
-          challenge: true,
+          success: true,
+          challenge: false,
         });
+        expect(Date.now() - startedAt).toBeLessThan(1_000);
       });
 
       it("does not accept the content while the page still reports a challenge status", async () => {
@@ -766,9 +1004,8 @@ describe("waitForExpectedContent", () => {
         await vi.runAllTimersAsync();
 
         await expect(result).resolves.toEqual({ success: true, challenge: true });
-        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
-          solvedAtMs + CONFIG.contentWaitTimeoutMs
-        );
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(solvedAtMs);
+        expect(Date.now() - startedAt).toBeLessThan(solvedAtMs + 1_000);
       });
 
       /*
@@ -799,15 +1036,11 @@ describe("waitForExpectedContent", () => {
 
         const elapsed = Date.now() - startedAt;
 
-        expect(elapsed).toBeGreaterThanOrEqual(
-          goneAtMs + CONFIG.contentWaitTimeoutMs
-        );
-        expect(elapsed).toBeLessThan(
-          goneAtMs + CONFIG.contentWaitTimeoutMs + 1_000
-        );
+        expect(elapsed).toBeGreaterThanOrEqual(goneAtMs);
+        expect(elapsed).toBeLessThan(goneAtMs + 1_000);
       });
 
-      it("keeps waiting when the captcha comes back during the fresh window", async () => {
+      it("accepts the content as soon as the captcha is gone, even if it would come back later", async () => {
         const startedAt = Date.now();
         const page = createFakePage({
           body: () => {
@@ -823,7 +1056,6 @@ describe("waitForExpectedContent", () => {
 
             return Promise.resolve(CAPTCHA_DIALOG);
           },
-          // The page is still loading, so the content alone is not final.
           readyState: () => "interactive",
         });
 
@@ -831,8 +1063,146 @@ describe("waitForExpectedContent", () => {
 
         await vi.runAllTimersAsync();
 
-        await expect(result).resolves.toEqual({ success: false, challenge: true });
+        await expect(result).resolves.toEqual({ success: true, challenge: true });
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(10_000);
+        expect(Date.now() - startedAt).toBeLessThan(11_000);
       });
     });
+  });
+
+  it("does not accept a Drom title while the body is still empty", async () => {
+    const startedAt = Date.now();
+    const paintedAtMs = 2_000;
+    const page = createFakePage({
+      title: () => Promise.resolve("Дром - цены на машины"),
+      body: () =>
+        Promise.resolve(
+          Date.now() - startedAt < paintedAtMs ? "" : "Дром - цены на машины"
+        ),
+      readyState: () =>
+        Date.now() - startedAt < paintedAtMs ? "loading" : "interactive",
+    });
+
+    const result = waitForExpectedContent(page, ["Дром"]);
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: true, challenge: false });
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(paintedAtMs);
+    expect(Date.now() - startedAt).toBeLessThan(paintedAtMs + 1_000);
+  });
+
+  it("reloads a Drom tab that stays on a white loading document", async () => {
+    const startedAt = Date.now();
+    let reloads = 0;
+    const page = createFakePage({
+      title: () => Promise.resolve("Дром - цены на машины"),
+      body: () => Promise.resolve(reloads === 0 ? "" : "Дром - цены на машины"),
+      readyState: () => (reloads === 0 ? "loading" : "interactive"),
+      reload: () => {
+        reloads += 1;
+        return Promise.resolve(createResponse(200));
+      },
+    });
+
+    const result = waitForExpectedContent(page, ["Дром"], {
+      stuckReloadMs: 5_000,
+    });
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: true, challenge: false });
+    expect(reloads).toBe(1);
+    expect(page.reload).toHaveBeenCalledWith({
+      waitUntil: "domcontentloaded",
+      timeout: 5_000,
+    });
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(5_000);
+    expect(Date.now() - startedAt).toBeLessThan(6_500);
+  });
+
+  it("does not accept a VK welcome title while the body is still empty", async () => {
+    const startedAt = Date.now();
+    const page = createFakePage({
+      title: () => Promise.resolve("VK | Welcome!"),
+      body: () => Promise.resolve(""),
+      readyState: () => "interactive",
+    });
+
+    const result = waitForExpectedContent(page, ["VK"], {
+      loadingContent: ["загружается"],
+    });
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: false, challenge: false });
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+      CONFIG.challengeWaitTimeoutMs
+    );
+  });
+
+  it("does not accept a VK welcome shell that is still loading", async () => {
+    const startedAt = Date.now();
+    const page = createFakePage({
+      title: () => Promise.resolve("VK | Welcome!"),
+      body: () => Promise.resolve("Search VK\nзагружается...\nHelp"),
+      readyState: () => "interactive",
+    });
+
+    const result = waitForExpectedContent(page, ["VK"], {
+      loadingContent: ["загружается"],
+    });
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: false, challenge: false });
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(
+      CONFIG.challengeWaitTimeoutMs
+    );
+  });
+
+  it("accepts VK as soon as the loading placeholder is gone", async () => {
+    const startedAt = Date.now();
+    const goneAtMs = 2_000;
+    const page = createFakePage({
+      title: () => Promise.resolve("VK | Welcome!"),
+      body: () =>
+        Promise.resolve(
+          Date.now() - startedAt < goneAtMs
+            ? "Search VK\nзагружается...\nHelp"
+            : "Лента новостей ВКонтакте"
+        ),
+      readyState: () => "interactive",
+    });
+
+    const result = waitForExpectedContent(page, ["VK"], {
+      loadingContent: ["загружается"],
+    });
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: true, challenge: false });
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(goneAtMs);
+    expect(Date.now() - startedAt).toBeLessThan(goneAtMs + 1_000);
+  });
+
+  it("does not wait out a challenge window for a loaded Dzen page whose markup mentions captcha", async () => {
+    const startedAt = Date.now();
+    const page = createFakePage({
+      title: () => Promise.resolve("Дзен — главная новостная информационная платформа"),
+      body: () => Promise.resolve("Новости и статьи"),
+      html: () =>
+        Promise.resolve(
+          '<script src="https://smartcaptcha.yandexcloud.net/captcha.js"></script>'
+        ),
+      readyState: () => "interactive",
+    });
+
+    const result = waitForExpectedContent(page, ["Дзен"]);
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toEqual({ success: true, challenge: false });
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
   });
 });

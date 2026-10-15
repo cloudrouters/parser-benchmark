@@ -60,6 +60,7 @@ function createFakeTab(fake: FakePage = createFakePage()): FakeTab {
     fake,
     // The page methods are spied on the fake, so delegate to it.
     goto: (url, options) => fake.goto(url, options),
+    reload: (options) => fake.reload(options),
     screenshot: (options) => fake.screenshot(options),
     close: () => fake.close(),
     addInitScript: vi.fn<CdpPage["addInitScript"]>(() => Promise.resolve()),
@@ -573,6 +574,15 @@ describe("createChromeBrowser user input tracking", () => {
 
     // Only events of a person count: scripts cannot make an event trusted.
     expect(script).toContain("isTrusted");
+    expect(script).toContain("keydown");
+    // Avito: the person clicks "Продолжить" / the hCaptcha iframe, then an
+    // automatic check may still run. That click must count. A click that
+    // only brings the Chrome window to the front must not (Wildberries).
+    expect(script).toContain("click");
+    expect(script).toContain("button");
+    expect(script).toContain("iframe");
+    expect(script).not.toContain("pointerdown");
+    expect(script).not.toContain("touchstart");
     expect(harness.cdp.initialTab?.fake.goto).not.toHaveBeenCalled();
   });
 

@@ -188,9 +188,11 @@ describe("runAttempt", () => {
     });
   });
 
-  it("reports the navigation error when goto fails", async () => {
+  it("reports the navigation error when goto fails and the page never loaded", async () => {
     const page = createPageWithBody("", {
+      url: () => "about:blank",
       goto: () => Promise.reject(new Error("Timeout 30000ms exceeded.")),
+      navigationStatus: () => null,
     });
     const browser = createFakeBrowser(() => createFakeContext(() => page));
 
@@ -201,6 +203,97 @@ describe("runAttempt", () => {
       requestSuccess: false,
       contentSuccess: false,
       error: "Timeout 30000ms exceeded.",
+    });
+  });
+
+  it("recovers a loaded page when goto times out waiting for domcontentloaded", async () => {
+    const page = createPageWithBody("Дром - цены на машины", {
+      url: () => "https://www.drom.ru/",
+      title: () => Promise.resolve("Дром - цены на машины"),
+      goto: () =>
+        Promise.reject(
+          new Error(
+            'page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to "https://www.drom.ru/", waiting until "domcontentloaded"'
+          )
+        ),
+      readyState: () => "interactive",
+      navigationStatus: () => 200,
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+    const target = createTarget({
+      name: "Drom",
+      url: "https://www.drom.ru/",
+      content: ["Дром"],
+    });
+
+    const result = await runAttempt(browser, target, 1, null);
+
+    expect(result).toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      challenge: false,
+      error: null,
+      finalUrl: "https://www.drom.ru/",
+    });
+  });
+
+  it("recovers a Drom document that is still loading before goto reaches domcontentloaded", async () => {
+    const startedAt = Date.now();
+    const page = createPageWithBody("Дром - цены на машины", {
+      url: () => "https://www.drom.ru/",
+      title: () => Promise.resolve("Дром - цены на машины"),
+      goto: () => new Promise(() => undefined),
+      readyState: () =>
+        Date.now() - startedAt < 1_000 ? "loading" : "interactive",
+      navigationStatus: () => 200,
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+    const target = createTarget({
+      name: "Drom",
+      url: "https://www.drom.ru/",
+      content: ["Дром"],
+    });
+
+    const promise = runAttempt(browser, target, 1, null);
+
+    await vi.advanceTimersByTimeAsync(1_000 + CONFIG.contentCheckIntervalMs);
+
+    await expect(promise).resolves.toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      error: null,
+      finalUrl: "https://www.drom.ru/",
+    });
+  });
+
+  it("accepts a loaded page before goto reaches domcontentloaded", async () => {
+    const page = createPageWithBody("Дром - цены на машины", {
+      url: () => "https://www.drom.ru/",
+      title: () => Promise.resolve("Дром - цены на машины"),
+      goto: () => new Promise(() => undefined),
+      readyState: () => "interactive",
+      navigationStatus: () => 200,
+    });
+    const browser = createFakeBrowser(() => createFakeContext(() => page));
+    const target = createTarget({
+      name: "Drom",
+      url: "https://www.drom.ru/",
+      content: ["Дром"],
+    });
+
+    const promise = runAttempt(browser, target, 1, null);
+
+    await vi.advanceTimersByTimeAsync(CONFIG.contentCheckIntervalMs);
+
+    await expect(promise).resolves.toMatchObject({
+      status: 200,
+      requestSuccess: true,
+      contentSuccess: true,
+      challenge: false,
+      error: null,
+      finalUrl: "https://www.drom.ru/",
     });
   });
 
@@ -415,8 +508,9 @@ describe("runAttempt with a challenge status", () => {
       challenge: true,
     });
     expect(result.responseTime).toBeGreaterThanOrEqual(
-      CONFIG.challengeWaitTimeoutMs
+      CONFIG.challengeWaitTimeoutMs * 2
     );
+    expect(page.reload).toHaveBeenCalledTimes(1);
     expect(page.screenshot).toHaveBeenCalledWith({
       path: "wildberries-challenge-1.png",
       fullPage: true,
@@ -538,6 +632,55 @@ describe("runAttempt with a challenge status", () => {
         manualChallenge: true,
       });
       expect(page.screenshot).not.toHaveBeenCalled();
+    });
+
+    it("stays MANUAL when a person solved the first captcha and an automatic check ran after", async () => {
+      const startedAt = Date.now();
+      const page = createFakePage({
+        goto: () => Promise.resolve(createResponse(429)),
+        navigationStatus: () => {
+          const elapsed = Date.now() - startedAt;
+
+          if (elapsed < 10_000) {
+            return 429;
+          }
+
+          if (elapsed < 20_000) {
+            return 439;
+          }
+
+          return 200;
+        },
+        body: () => {
+          const elapsed = Date.now() - startedAt;
+
+          if (elapsed < 10_000) {
+            return Promise.resolve(CAPTCHA_PAGE);
+          }
+
+          if (elapsed < 20_000) {
+            return Promise.resolve(
+              "Доступ ограничен: проверка безопасности. Проверка пройдена, перенаправление..."
+            );
+          }
+
+          return Promise.resolve("Объявления на сайте Авито");
+        },
+        readyState: () => "interactive",
+        userInput: () => true,
+      });
+      const browser = createFakeBrowser(() => createFakeContext(() => page));
+
+      const promise = runAttempt(browser, AVITO, 1, null);
+
+      await vi.runAllTimersAsync();
+
+      await expect(promise).resolves.toMatchObject({
+        status: 200,
+        contentSuccess: true,
+        challenge: true,
+        manualChallenge: true,
+      });
     });
 
     it("marks the challenge as manual only when a person interacted with the page", async () => {

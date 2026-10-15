@@ -92,6 +92,22 @@ describe("resolveTargetSet", () => {
     );
   });
 
+  it("reloads Drom if the tab stays unresponsive for 5 seconds", () => {
+    const drom = resolveTargetSet("ru").targets.find(
+      (target) => target.name === "Drom"
+    );
+
+    expect(drom?.stuckReloadMs).toBe(5_000);
+  });
+
+  it("waits out VK's loading shell before treating the welcome page as content", () => {
+    const vk = resolveTargetSet("ru").targets.find(
+      (target) => target.name === "VK"
+    );
+
+    expect(vk?.loadingContent).toEqual(["загружается"]);
+  });
+
   it("declares challenge statuses only for Ozon (403), Wildberries (498) and Avito (439, 429)", () => {
     const withChallengeStatuses = Object.fromEntries(
       resolveTargetSet("ru")

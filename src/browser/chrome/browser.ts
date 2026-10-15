@@ -104,17 +104,39 @@ const USER_INPUT_MARKER = "parser-benchmark:user-input";
 /*
  * Runs in every document and frame of the page. `isTrusted` is false for
  * events that scripts create, so only a person's input is announced.
+ *
+ * A key press always counts. A click counts when it is on a control
+ * (Avito's "Продолжить", a checkbox, a captcha iframe) or inside a
+ * subframe (hCaptcha). A click that only brings the Chrome window to
+ * the front hits the page background and is ignored.
  */
 const TRACK_USER_INPUT_SCRIPT = `(() => {
-  const report = (event) => {
-    if (event.isTrusted) {
-      console.debug(${JSON.stringify(USER_INPUT_MARKER)});
-    }
+  const report = () => {
+    console.debug(${JSON.stringify(USER_INPUT_MARKER)});
   };
 
-  for (const type of ["pointerdown", "keydown", "touchstart"]) {
-    window.addEventListener(type, report, true);
-  }
+  const isControlClick = (event) => {
+    const el = event.target;
+    return el instanceof Element && el.closest(
+      "button, a, input, textarea, select, iframe, [role='button'], [role='checkbox']"
+    ) !== null;
+  };
+
+  window.addEventListener("keydown", (event) => {
+    if (event.isTrusted) {
+      report();
+    }
+  }, true);
+
+  window.addEventListener("click", (event) => {
+    if (!event.isTrusted) {
+      return;
+    }
+
+    if (window !== window.top || isControlClick(event)) {
+      report();
+    }
+  }, true);
 })();`;
 
 /**
@@ -195,6 +217,7 @@ function createPage(
     locator: (selector) => tab.locator(selector),
     evaluate: (expression) => tab.evaluate(expression),
     goto: (url, options) => tab.goto(url, options),
+    reload: (options) => tab.reload(options),
     screenshot: (options) => tab.screenshot(options),
     close,
     hadUserInput: chrome.hadUserInput,

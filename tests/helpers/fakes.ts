@@ -15,6 +15,8 @@ export interface FakePageOptions {
   url?: () => string;
   title?: () => Promise<string>;
   body?: () => Promise<string>;
+  /** `document.documentElement.innerHTML` of the page. */
+  html?: () => Promise<string>;
   /** Status of the navigation entry that the page itself reports (default 200). */
   navigationStatus?: () => number | null;
   /** `document.readyState` of the page (default "complete"). */
@@ -25,12 +27,14 @@ export interface FakePageOptions {
    */
   userInput?: () => boolean;
   goto?: PageLike["goto"];
+  reload?: PageLike["reload"];
   screenshot?: PageLike["screenshot"];
   close?: PageLike["close"];
 }
 
 export interface FakePage extends PageLike {
   goto: Mock<PageLike["goto"]>;
+  reload: Mock<PageLike["reload"]>;
   screenshot: Mock<PageLike["screenshot"]>;
   close: Mock<PageLike["close"]>;
 }
@@ -49,12 +53,19 @@ export function createFakePage(options: FakePageOptions = {}): FakePage {
         );
       }
 
+      if (expression.includes("innerHTML") || expression.includes("outerHTML")) {
+        return (options.html ?? (() => Promise.resolve("")))();
+      }
+
       return Promise.resolve(
         options.navigationStatus === undefined ? 200 : options.navigationStatus()
       );
     },
     goto: vi.fn<PageLike["goto"]>(
       options.goto ?? (() => Promise.resolve(createResponse(200)))
+    ),
+    reload: vi.fn<PageLike["reload"]>(
+      options.reload ?? (() => Promise.resolve(createResponse(200)))
     ),
     screenshot: vi.fn<PageLike["screenshot"]>(
       options.screenshot ?? (() => Promise.resolve(undefined))

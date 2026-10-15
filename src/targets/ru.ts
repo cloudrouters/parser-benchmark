@@ -14,6 +14,12 @@ export const RU_TARGETS: readonly Target[] = [
     challengeStatuses: [439, 429],
   },
   {
+    name: "Drom",
+    url: "https://www.drom.ru/",
+    content: ["Дром"],
+    saveDiagnostics: true,
+  },
+  {
     name: "Wildberries",
     url: "https://www.wildberries.ru/",
     content: ["Wildberries"],
@@ -59,15 +65,10 @@ export const RU_TARGETS: readonly Target[] = [
     saveDiagnostics: true,
   },
   {
-    name: "Drom",
-    url: "https://www.drom.ru/",
-    content: ["Дром"],
-    saveDiagnostics: true,
-  },
-  {
     name: "VK",
     url: "https://vk.com/",
     content: ["VK"],
     saveDiagnostics: true,
+    loadingContent: ["загружается"],
   },
 ];
